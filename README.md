@@ -10,8 +10,8 @@ Treemap disk usage analyzer
 - [ ] Tracks changes on the filesystem
 - [ ] Navigate into sub-directories
 - [ ] Right click menu to manage the directories
-## Acknowledgements:
+## Acknowledgements
 [SpaceSniffer](http://www.uderzo.it/main_products/space_sniffer/) for inspiration  
-[Bruls, Huizing, van Wijk, "Squarified Treemaps"](https://www.win.tue.nl/~vanwijk/stm.pdf) and [TreeMonger](https://github.com/alanbernstein/treemonger) which I referenced for the the squarified treemap algorithm
+[Bruls, Huizing, van Wijk, "Squarified Treemaps"](https://www.win.tue.nl/~vanwijk/stm.pdf) and [TreeMonger](https://github.com/alanbernstein/treemonger) which I referenced for the squarified treemap algorithm
 
 ![Screenshot](screenshot.png?raw=true)
