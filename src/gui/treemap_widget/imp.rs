@@ -20,17 +20,6 @@ use std::thread;
 
 #[derive(Debug, Default)]
 pub struct TreeMapWidget {
-    /// Reference to the child widget.
-    ///
-    /// In our case it's a text label for the button. Since this example only uses a
-    /// `gtk::Label`, the type could've been `Option<gtk::Label>`. However, a real button might
-    /// switch between a label widget and an icon widget, and in general your widget can contain
-    /// arbitrary children. Thus we used `Option<gtk::Widget>` to show how to handle any widget
-    /// and to make the example easier to tweak and play with.
-    ///
-    /// Widgets automatically store strong references to their children, added in `set_parent()`
-    /// and removed in `unparent()`. Therefore, this field could be a `WeakRef<gtk::Widget>`.
-    /// Using a strong reference is just a little clearer.
     child: RefCell<Option<gtk::Widget>>,
     pub tree_mutex: Arc<Mutex<Tree>>,
     gui_node_map: RefCell<HashMap<NodeID, GUINode>>,
@@ -47,16 +36,10 @@ impl ObjectSubclass for TreeMapWidget {
     type Type = super::TreeMapWidget;
     type ParentType = gtk::Widget;
 
-    fn class_init(klass: &mut Self::Class) {
+    /*fn class_init(klass: &mut Self::Class) {
         // The layout manager determines how child widgets are laid out.
         klass.set_layout_manager_type::<gtk::BinLayout>();
-
-        // Make it look like a GTK button.
-        // klass.set_css_name("button");
-
-        // Make it appear as a button to accessibility tools.
-        // klass.set_accessible_role(gtk::AccessibleRole::Button);
-    }
+    }*/
 }
 
 fn locate_node<'a>(
@@ -121,9 +104,7 @@ fn query_tooltip(
 }
 
 // try making this an associated function
-fn refresh(
-    widget: &super::TreeMapWidget,
-) -> Continue {
+fn refresh(widget: &super::TreeMapWidget) -> Continue {
     let imp = widget.imp();
     if *imp.scan_complete_flag.borrow() == false {
         imp.invalidate_gui_nodes_flag.replace(true);
@@ -263,7 +244,6 @@ impl WidgetImpl for TreeMapWidget {
                 self.gui_node_map
                     .replace(squarify::compute_gui_nodes(&tree, root, rect));
                 self.invalidate_gui_nodes_flag.replace(false);
-
             }
             update_rects(
                 &tree,
