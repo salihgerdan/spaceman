@@ -19,7 +19,7 @@ impl Default for TreeMapWidget {
 
 impl TreeMapWidget {
     pub fn new() -> Self {
-        glib::Object::new_default()
+        glib::Object::new()
     }
     pub fn get_tree_mutex(&self) -> &Arc<Mutex<Tree>> {
         &self.imp().tree_mutex
