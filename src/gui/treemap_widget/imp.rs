@@ -16,7 +16,6 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
-use std::thread;
 
 #[derive(Debug, Default)]
 pub struct TreeMapWidget {
@@ -24,7 +23,7 @@ pub struct TreeMapWidget {
     pub tree_mutex: Arc<Mutex<Tree>>,
     gui_node_map: RefCell<HashMap<NodeID, GUINode>>,
     invalidate_gui_nodes_flag: RefCell<bool>,
-    scan_complete_flag: RefCell<bool>,
+    pub scan_complete_flag: RefCell<bool>,
     last_elems_len: RefCell<usize>,
     last_width: RefCell<f32>,
     last_height: RefCell<f32>,
@@ -156,12 +155,6 @@ impl ObjectImpl for TreeMapWidget {
         obj.set_height_request(100);
         obj.set_has_tooltip(true);
         obj.connect_query_tooltip(query_tooltip);
-        {
-            let mut tree = self.tree_mutex.lock().unwrap();
-            tree.set_root("/");
-        }
-        let tree_mutex_clone = self.tree_mutex.clone();
-        thread::spawn(move || filetree::walk_into_tree(tree_mutex_clone));
 
         // start refresh timer
         let nano_to_milli = 1000000;

@@ -1,9 +1,13 @@
 mod imp;
 
-use crate::filetree::Tree;
+use crate::filetree::{self, Tree};
 use gtk::glib;
 use gtk::subclass::prelude::ObjectSubclassIsExt;
-use std::sync::{Arc, Mutex};
+use std::thread;
+use std::{
+    path::PathBuf,
+    sync::{Arc, Mutex},
+};
 
 glib::wrapper! {
     pub struct TreeMapWidget(ObjectSubclass<imp::TreeMapWidget>)
@@ -23,5 +27,15 @@ impl TreeMapWidget {
     }
     pub fn get_tree_mutex(&self) -> &Arc<Mutex<Tree>> {
         &self.imp().tree_mutex
+    }
+    pub fn start_scan(&self, directory: &str) {
+        {
+            let mut tree = self.imp().tree_mutex.lock().unwrap();
+            tree.set_root(directory);
+        }
+        self.imp().scan_complete_flag.replace(false);
+        let tree_mutex_clone = self.imp().tree_mutex.clone();
+        thread::spawn(move || filetree::walk_into_tree(tree_mutex_clone));
+        // we should probably keep track of this thread somewhere
     }
 }
