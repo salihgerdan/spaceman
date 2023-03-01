@@ -164,11 +164,10 @@ impl ObjectImpl for TreeMapWidget {
         thread::spawn(move || filetree::walk_into_tree(tree_mutex_clone));
 
         // start refresh timer
-        let widget = obj.clone();
         let nano_to_milli = 1000000;
         gtk::glib::timeout_add_local(
             std::time::Duration::new(0, 300 * nano_to_milli),
-            move || refresh(&widget),
+            glib::clone!(@weak obj => @default-return Continue(false), move || refresh(&obj)),
         );
     }
 
