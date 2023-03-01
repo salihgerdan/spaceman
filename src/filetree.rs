@@ -54,8 +54,16 @@ impl Tree {
     pub fn get_elem(&self, id: NodeID) -> &Node {
         &self.elems[id]
     }
-    pub fn set_root(&mut self, name: &str) {
-        self.elems[0].name = name.into();
+    fn truncate_tree(&mut self) {
+        self.elems.truncate(0);
+        self.last_id = 0;
+    }
+    pub fn set_root(&mut self, root_name: &str) {
+        self.truncate_tree();
+        self.elems.push(Node {
+            name: root_name.into(),
+            ..Default::default()
+        });
     }
 }
 
