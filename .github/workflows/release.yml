@@ -1,0 +1,126 @@
+# .github/workflows/release.yml
+name: All
+on:
+  release:
+    types: [created]
+jobs:
+  build:
+    name: Build Release Binaries
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            name: spaceman-x86_64-linux.tar.xz
+            os: ubuntu-latest
+          - target: x86_64-apple-darwin
+            name: spaceman-x86_64-osx.tar.gz
+            os: macos-latest
+          - target: aarch64-apple-darwin
+            name: spaceman-aarch64-osx.tar.gz
+            os: macos-latest
+          - target: x86_64-pc-windows-gnu
+            name: spaceman-x86_64-windows.zip
+            os: windows-latest
+            PKG_CONFIG_SYSROOT_DIR: 'C:/my_msys2/msys64/mingw64/'
+            PKG_CONFIG_PATH: 'C:/my_msys2/msys64/mingw64/lib/pkgconfig/'
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Setup | Checkout
+        uses: actions/checkout@v2
+      - name: Setup | Cache Cargo
+        uses: actions/cache@v2.1.6
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - name: Setup | Install Dependencies | Linux
+        if: matrix.os == 'ubuntu-latest'
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: sudo apt-get update && sudo apt-get install --no-install-recommends -y
+          build-essential pkg-config libgtk-4-dev
+      - name: Setup | Install Dependencies | MacOS-x86_64
+        if: matrix.target == 'x86_64-apple-darwin'
+        run: brew install gtk4
+      - name: Setup | Install Dependencies | MacOS-aarch64
+        if: matrix.target == 'aarch64-apple-darwin'
+        run: |-
+          brew fetch --force --bottle-tag=arm64_big_sur gtk4 gdk-pixbuf graphene hicolor-icon-theme libepoxy fribidi pango
+           brew --cache --bottle-tag=arm64_big_sur gtk4 gdk-pixbuf graphene hicolor-icon-theme libepoxy fribidi pango
+      - name: Setup | Rust
+        uses: actions-rs/toolchain@v1.0.7
+        with:
+          toolchain: stable
+          override: true
+          profile: minimal
+          target: ${{ matrix.target }}
+      - name: Setup | MSYS2 | Windows
+        if: matrix.target == 'x86_64-pc-windows-gnu'
+        uses: msys2/setup-msys2@v2
+        with:
+          update: true
+          location: C:\my_msys2\
+          install: >-
+            mingw-w64-x86_64-gtk4
+            mingw-w64-x86_64-gettext
+            mingw-w64-x86_64-libxml2
+            mingw-w64-x86_64-librsvg
+            mingw-w64-x86_64-pkgconf 
+            mingw-w64-x86_64-gcc
+      - name: Add MSYS2 to PATH | Windows
+        if: matrix.target == 'x86_64-pc-windows-gnu'
+        shell: pwsh
+        run: |
+          echo "C:\my_msys2\msys64\mingw64\include" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          echo "C:\my_msys2\msys64\mingw64\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          echo "C:\my_msys2\msys64\mingw64\lib" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+      - name: Build
+        uses: actions-rs/cargo@v1.0.3
+        with:
+          command: build
+          args: --release --target ${{ matrix.target }}'
+          use-cross: ${{ matrix.os == 'ubuntu-latest' && matrix.target !=
+            'x86_64-unknown-linux-gnu' }}
+        env:
+          PKG_CONFIG_SYSROOT_DIR: ${{matrix.PKG_CONFIG_SYSROOT_DIR}}
+          PKG_CONFIG_PATH: ${{matrix.PKG_CONFIG_PATH}}
+      - name: PostBuild | Prepare | Non-Windows
+        if: matrix.os != 'windows-latest'
+        run: |-
+          mkdir pkg
+           cp target/${{ matrix.target }}/release/spaceman pkg/
+           cd pkg
+           strip ./spaceman || true 
+           tar -cJvf ../${{ matrix.name }} spaceman 
+           cd -
+      - name: PostBuild | Prepare | Windows
+        if: matrix.os == 'windows-latest'
+        run: |-
+          mkdir pkg
+           cp target/${{ matrix.target }}/release/spaceman.exe pkg/
+           cd pkg
+           touch copy_dlls.sh
+           ldd spaceman.exe | grep '\/mingw.*\.dll' -o | xargs -IECHIDNA echo "cp /c/my_msys2/msys64/ECHIDNA" >> copy_dlls.sh
+           dos2unix copy_dlls.sh
+           sed -i "s/$/ ./" copy_dlls.sh # strange behavior with endline characters
+           bash copy_dlls.sh
+           strip spaceman.exe
+           7z a ../${{ matrix.name }} spaceman.exe *.dll
+           cd -
+      - name: Get release information
+        id: get_release
+        uses: bruceadams/get-release@v1.3.2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Upload release binary
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.get_release.outputs.upload_url }}
+          asset_path: ${{ matrix.name }}
+          asset_name: ${{ matrix.name }}
+          asset_content_type: application/octet-stream
