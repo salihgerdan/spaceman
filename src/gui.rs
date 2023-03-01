@@ -1,6 +1,5 @@
-use crate::filetree::Tree;
-use crate::{config, filetree};
-use gtk::prelude::*;
+use crate::config;
+use gtk::{prelude::*, ResponseType};
 use std::rc::Rc;
 mod squarify;
 mod treemap_widget;
@@ -11,11 +10,6 @@ pub fn initiate_ui() {
     application.connect_activate(build_ui);
     application.run();
 }
-
-/*fn update_view(tree_map_widget: &TreeMapWidget) -> Continue {
-    tree_map_widget.queue_draw();
-    Continue(true)
-}*/
 
 fn build_ui(application: &gtk::Application) {
     let window = gtk::ApplicationWindow::new(application);
@@ -29,16 +23,32 @@ fn build_ui(application: &gtk::Application) {
     let treemap_widget = TreeMapWidget::new();
     gtk_box.append(&treemap_widget);
     treemap_widget.set_hexpand(true);
-    treemap_widget.object_class();
 
-    // local removes the necessity for Send-able objects in closure
-    /*let nano_to_milli = 1000000;
-    gtk::glib::timeout_add_local(
-        std::time::Duration::new(0, 300 * nano_to_milli),
-        move || update_view(&treemap_widget),
-    );*/
-    //let gtk_box_clone = Rc::clone(&gtk_box);
-    //button.connect_clicked(move |_| update(&gtk_box_clone));
+    let headerbar = gtk::HeaderBar::new();
+    window.set_titlebar(Some(&headerbar));
+
+    let file_chooser = gtk::FileChooserDialog::new(
+        Some("Choose scan target"),
+        Some(&window),
+        gtk::FileChooserAction::SelectFolder,
+        &[("Open", ResponseType::Ok), ("Cancel", ResponseType::Cancel)],
+    );
+
+    file_chooser.connect_response(move |d: &gtk::FileChooserDialog, response: ResponseType| {
+        if response == ResponseType::Ok {
+            let directory = d.file().expect("Couldn't get directory");
+            let path = directory.path().expect("Couldn't get path");
+            treemap_widget.start_scan(&path.display().to_string());
+            println!("{}", path.display());
+        }
+
+        d.hide();
+    });
+
+    let open_button = gtk::Button::new();
+    open_button.set_icon_name("document-open");
+    headerbar.pack_start(&open_button);
+    open_button.connect_clicked(move |_| file_chooser.show());
 
     window.show();
 }
