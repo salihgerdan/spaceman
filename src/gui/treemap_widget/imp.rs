@@ -1,7 +1,7 @@
 mod bytes_display;
 mod node_color;
 
-use crate::filetree::{self, Node, NodeID, Tree};
+use crate::filetree::{Node, NodeID, Tree};
 use crate::gui::squarify::{self, GUINode};
 use gtk::gdk::RGBA;
 use gtk::glib;
@@ -14,7 +14,6 @@ use node_color::NodeColor;
 use once_cell::sync::Lazy;
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 
 #[derive(Debug, Default)]
@@ -36,7 +35,6 @@ impl ObjectSubclass for TreeMapWidget {
     type ParentType = gtk::Widget;
 
     /*fn class_init(klass: &mut Self::Class) {
-        // The layout manager determines how child widgets are laid out.
         klass.set_layout_manager_type::<gtk::BinLayout>();
     }*/
 }
@@ -129,7 +127,7 @@ impl ObjectImpl for TreeMapWidget {
         PROPERTIES.as_ref()
     }
 
-    fn set_property(&self, _id: usize, value: &glib::Value, pspec: &glib::ParamSpec) {
+    fn set_property(&self, _id: usize, _value: &glib::Value, pspec: &glib::ParamSpec) {
         match pspec.name() {
             "tree-root" => {
                 //let string_value: &str = value.get().expect("The value needs to be of type `string`.");

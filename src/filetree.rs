@@ -73,42 +73,6 @@ impl Default for Tree {
     }
 }
 
-pub fn walk(path: &str) -> jwalk::Result<Tree> {
-    let mut tree = Tree::new(path);
-    let walkdir = WalkDir::new(path)
-        .sort(true)
-        .follow_links(false)
-        .skip_hidden(false);
-    // TODO: add parallelism here
-    let mut last_depth = 0;
-    let mut last_node = 0;
-    for entry in walkdir {
-        let e = entry?;
-        let file_size = e.metadata()?.len();
-        let file_name = e.file_name.into_string().unwrap_or_default();
-        if e.depth > last_depth {
-            tree.add_elem(last_node, file_name, file_size);
-        } else if e.depth == last_depth {
-            if let Some(parent) = tree.get_elem(last_node).parent {
-                tree.add_elem(parent, file_name, file_size);
-            }
-        } else {
-            let mut parent = last_node;
-            for _ in e.depth..=last_depth {
-                parent = match tree.get_elem(parent).parent {
-                    Some(p) => p,
-                    None => parent, // we never get here I guess
-                }
-            }
-            tree.add_elem(parent, file_name, file_size);
-        }
-        last_depth = e.depth;
-        last_node = tree.last_id;
-        //println!("{:?}", tree.get_elem(last_node));
-    }
-    Ok(tree)
-}
-
 pub fn walk_into_tree(tree_mutex: Arc<Mutex<Tree>>) -> jwalk::Result<()> {
     let root_name = { tree_mutex.lock().unwrap().get_elem(0).name.clone() };
     let walkdir = WalkDir::new(root_name)

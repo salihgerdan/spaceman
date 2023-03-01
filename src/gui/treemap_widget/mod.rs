@@ -3,11 +3,8 @@ mod imp;
 use crate::filetree::{self, Tree};
 use gtk::glib;
 use gtk::subclass::prelude::ObjectSubclassIsExt;
+use std::sync::{Arc, Mutex};
 use std::thread;
-use std::{
-    path::PathBuf,
-    sync::{Arc, Mutex},
-};
 
 glib::wrapper! {
     pub struct TreeMapWidget(ObjectSubclass<imp::TreeMapWidget>)
