@@ -1,5 +1,5 @@
 # spaceman <img src="spaceman.png" width="48"/>
-Treemap disk usage analyzer  
+Treemap disk usage analyzer: In search of lost space   
 (a.k.a. wata-analyzer)  
 **Warning: beta software**
 ## Features
