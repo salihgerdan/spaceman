@@ -1,0 +1,11 @@
+[Desktop Entry]
+Version=0.1
+Name=SpaceMan
+Comment=In search of lost space
+GenericName=Treemap disk usage analyzer
+Exec=spaceman
+Icon=spaceman
+Terminal=false
+Type=Application
+Categories=System;Filesystem;
+StartupNotify=false
