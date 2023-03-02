@@ -17,14 +17,14 @@ jobs:
           - target: x86_64-apple-darwin
             name: spaceman-x86_64-osx.tar.gz
             os: macos-latest
-          - target: aarch64-apple-darwin
-            name: spaceman-aarch64-osx.tar.gz
-            os: macos-latest
-          - target: x86_64-pc-windows-gnu
-            name: spaceman-x86_64-windows.zip
-            os: windows-latest
-            PKG_CONFIG_SYSROOT_DIR: 'C:/my_msys2/msys64/mingw64/'
-            PKG_CONFIG_PATH: 'C:/my_msys2/msys64/mingw64/lib/pkgconfig/'
+          #- target: aarch64-apple-darwin
+          #  name: spaceman-aarch64-osx.tar.gz
+          #  os: macos-latest
+          #- target: x86_64-pc-windows-gnu
+          #  name: spaceman-x86_64-windows.zip
+          #  os: windows-latest
+          #  PKG_CONFIG_SYSROOT_DIR: 'C:/my_msys2/msys64/mingw64/'
+          #  PKG_CONFIG_PATH: 'C:/my_msys2/msys64/mingw64/lib/pkgconfig/'
     runs-on: ${{ matrix.os }}
     steps:
       - name: Setup | Checkout
@@ -102,13 +102,14 @@ jobs:
           mkdir pkg
            cp target/${{ matrix.target }}/release/spaceman.exe pkg/
            cd pkg
-           touch copy_dlls.sh
-           ldd spaceman.exe | grep '\/mingw.*\.dll' -o | xargs -IECHIDNA echo "cp /c/my_msys2/msys64/ECHIDNA" >> copy_dlls.sh
-           dos2unix copy_dlls.sh
-           sed -i "s/$/ ./" copy_dlls.sh # strange behavior with endline characters
-           bash copy_dlls.sh
+           mkdir bin
+           bash -c "ldd spaceman.exe | grep '\/mingw.*\.dll' -o | sed -z 's/[\n\r]/ /g' | xargs -d ' ' -IECHIDNA cp /c/my_msys2/msys64/ECHIDNA ./bin/"
            strip spaceman.exe
-           7z a ../${{ matrix.name }} spaceman.exe *.dll
+           mv spaceman.exe bin/
+           mkdir -p share/glib-2.0/schemas/
+           glib-compile-schemas C:/my_msys2/msys64/mingw64/share/glib-2.0/schemas/
+           cp C:/my_msys2/msys64/mingw64/share/glib-2.0/schemas/gschemas.compiled share/glib-2.0/schemas/
+           7z a -r ../${{ matrix.name }} bin/ share/
            cd -
       - name: Get release information
         id: get_release
