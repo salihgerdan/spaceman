@@ -1,6 +1,7 @@
 # spaceman
 Treemap disk usage analyzer  
-**Warning: work in progress**
+(a.k.a. wata-analyzer)  
+**Warning: beta software**
 ## Features
 - [X] Fast scan and display, with the power of Rust, and gtk4 gpu rendering capabilities
 - [X] Uses the jwalk library as [dua-cli](https://github.com/Byron/dua-cli/) does
