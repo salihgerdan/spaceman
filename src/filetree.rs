@@ -69,7 +69,7 @@ impl Tree {
 
 impl Default for Tree {
     fn default() -> Self {
-        Tree::new("/")
+        Tree::new("")
     }
 }
 
