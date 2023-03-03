@@ -76,10 +76,8 @@ impl Default for Tree {
 pub fn walk_into_tree(tree_mutex: Arc<Mutex<Tree>>) -> jwalk::Result<()> {
     let root_name = { tree_mutex.lock().unwrap().get_elem(0).name.clone() };
     let walkdir = WalkDir::new(root_name)
-        .sort(true)
         .follow_links(false)
         .skip_hidden(false);
-    // TODO: add parallelism here
     let mut last_depth = 0;
     let mut last_node = 0;
     for entry in walkdir {
