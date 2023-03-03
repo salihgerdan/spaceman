@@ -1,19 +1,18 @@
 # spaceman <img src="spaceman.png" width="48"/>
-Treemap disk usage analyzer: In search of lost space   
+Treemap disk usage analyzer: *In search of lost space*   
 (a.k.a. wata-analyzer)  
-**Warning: beta software**
+**Warning: beta software (however, usable)**
 ## Features
 - [X] Fast scan and display, with the power of Rust, and gtk4 gpu rendering capabilities
-- [X] Uses the jwalk library as [dua-cli](https://github.com/Byron/dua-cli/) does
-- [x] Visible from the start, updates as the scan goes on
-- [X] Tight and informative presentation of data
+- [X] Uses the jwalk library as [dua-cli](https://github.com/Byron/dua-cli/) does, enabling multi-threaded scans
+- [x] Visible from the start, incrementally updates the view as the scan goes on
 ## Planned
 - [ ] Tracks changes on the filesystem
 - [ ] Navigate into sub-directories
 - [ ] Right click menu to manage the directories
 ## Install
-Only tested on Linux. You need to have `gtk4` and `rust` installed in your system to build, and only `gtk4` to run it. The only command necessary to build is `cargo build --release` after the dependencies are installed.  
-You can also simply grab an executable from the Releases section. Note that the MacOS version is entirely untested.  
+Only tested on Linux, and partially MacOS. You need to have `gtk4` and `rust` installed in your system to build, and only `gtk4` to run it. The only command necessary to build is `cargo build --release` after the dependencies are installed.  
+You can also simply grab an executable from the Releases section.  
 There is a [PKGBUILD](./PKGBUILD) file available for Arch Linux.
 ## Usage
 Click the button on the left of the titlebar, and choose a directory to scan.
