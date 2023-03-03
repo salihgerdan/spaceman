@@ -15,6 +15,7 @@ use once_cell::sync::Lazy;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
+use std::thread::JoinHandle;
 
 #[derive(Debug, Default)]
 pub struct TreeMapWidget {
@@ -23,7 +24,7 @@ pub struct TreeMapWidget {
     gui_node_map: RefCell<HashMap<NodeID, GUINode>>,
     invalidate_gui_nodes_flag: RefCell<bool>,
     pub scan_complete_flag: RefCell<bool>,
-    last_elems_len: RefCell<usize>,
+    pub thread_handle: RefCell<Option<JoinHandle<jwalk::Result<()>>>>,
     last_width: RefCell<f32>,
     last_height: RefCell<f32>,
 }
@@ -106,14 +107,14 @@ fn refresh(widget: &super::TreeMapWidget) -> Continue {
     if *imp.scan_complete_flag.borrow() == false {
         imp.invalidate_gui_nodes_flag.replace(true);
         widget.queue_draw();
-        {
-            let tree = imp.tree_mutex.lock().unwrap();
-            let elems_len = tree.elems.len();
-            if elems_len == *imp.last_elems_len.borrow() {
-                imp.scan_complete_flag.replace(true);
-            } else {
-                imp.last_elems_len.replace(elems_len);
-            }
+        let finished = imp
+            .thread_handle
+            .borrow()
+            .as_ref()
+            .map(|x| x.is_finished())
+            .unwrap_or(true);
+        if finished {
+            imp.scan_complete_flag.replace(true);
         }
     }
 

@@ -26,16 +26,18 @@ impl TreeMapWidget {
         &self.imp().tree_mutex
     }
     pub fn start_scan(&self, directory: &str) {
+        let imp = self.imp();
         // do not change the root in the middle of a scan
-        if *self.imp().scan_complete_flag.borrow() == true {
+        if imp.scan_complete_flag.borrow().clone() == true {
             {
-                let mut tree = self.imp().tree_mutex.lock().unwrap();
+                let mut tree = imp.tree_mutex.lock().unwrap();
                 tree.set_root(directory);
             }
-            self.imp().scan_complete_flag.replace(false);
-            let tree_mutex_clone = self.imp().tree_mutex.clone();
-            thread::spawn(move || filetree::walk_into_tree(tree_mutex_clone));
-            // we should probably keep track of this thread somewhere
+            imp.scan_complete_flag.replace(false);
+            let tree_mutex_clone = imp.tree_mutex.clone();
+            imp.thread_handle.replace(Some(thread::spawn(move || {
+                filetree::walk_into_tree(tree_mutex_clone)
+            })));
         }
     }
 }
