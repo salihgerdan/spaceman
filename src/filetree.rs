@@ -9,6 +9,7 @@ pub struct Node {
     pub size: u64,
     pub name: String,
     pub depth: u64,
+    pub is_file: bool,
     pub parent: Option<NodeID>,
     pub children: Vec<NodeID>,
 }
@@ -37,13 +38,14 @@ impl Tree {
             node = p;
         }
     }
-    pub fn add_elem(&mut self, parent: NodeID, name: String, size: u64) {
+    pub fn add_elem(&mut self, parent: NodeID, name: String, is_file: bool, size: u64) {
         self.last_id += 1;
         let node = Node {
             id: self.last_id,
             name,
             size,
             depth: self.elems[parent].depth + 1,
+            is_file,
             parent: Some(parent),
             children: vec![],
         };
@@ -84,14 +86,15 @@ pub fn walk_into_tree(tree_mutex: Arc<Mutex<Tree>>) -> jwalk::Result<()> {
         let e = entry?;
         let file_size = e.metadata()?.len();
         let file_name = e.file_name.into_string().unwrap_or_default();
+        let is_file = e.file_type.is_file();
         {
             // we lock and unlock this at every item, so the gui thread can grab it easily
             let mut tree = tree_mutex.lock().unwrap();
             if e.depth > last_depth {
-                tree.add_elem(last_node, file_name, file_size);
+                tree.add_elem(last_node, file_name, is_file, file_size);
             } else if e.depth == last_depth {
                 if let Some(parent) = tree.get_elem(last_node).parent {
-                    tree.add_elem(parent, file_name, file_size);
+                    tree.add_elem(parent, file_name, is_file, file_size);
                 }
             } else {
                 let mut parent = last_node;
@@ -101,7 +104,7 @@ pub fn walk_into_tree(tree_mutex: Arc<Mutex<Tree>>) -> jwalk::Result<()> {
                         None => parent, // we never get here I guess
                     }
                 }
-                tree.add_elem(parent, file_name, file_size);
+                tree.add_elem(parent, file_name, is_file, file_size);
             }
             last_depth = e.depth;
             last_node = tree.last_id;

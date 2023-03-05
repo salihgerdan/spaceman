@@ -10,7 +10,6 @@ use gtk::pango;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 use gtk::Tooltip;
-use node_color::NodeColor;
 use once_cell::sync::Lazy;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -180,8 +179,11 @@ fn update_rects(
     pango_context: &pango::Context,
 ) {
     if let Some(gui_node) = gui_node_map.get(&node.id) {
-        let color = NodeColor::depth_color(node.depth as usize);
-        snapshot.append_color(&color.get_rgba(), &gui_node.rect);
+        let color = match node.is_file {
+            false => node_color::depth_dir_color(node.depth as usize),
+            true => node_color::depth_file_color(node.depth as usize),
+        };
+        snapshot.append_color(&color, &gui_node.rect);
         let layout = pango::Layout::new(pango_context);
         layout.set_text(&format!(
             "{} ({})",
