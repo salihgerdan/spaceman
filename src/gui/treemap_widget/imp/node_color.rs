@@ -18,9 +18,9 @@ static DIR: Lazy<[RGBA; 5]> = Lazy::new(|| {
     (0..5)
         .map(|depth| {
             RGBA::new(
-                DIR_R * (1.1 * DIR_R / 1.0).powi(depth as i32),
-                DIR_G * (1.1 * DIR_G / 1.0).powi(depth as i32),
-                DIR_B * (1.1 * DIR_B / 1.0).powi(depth as i32),
+                DIR_R * (1.1 * DIR_R * 0.77).powi(depth as i32),
+                DIR_G * (1.1 * DIR_G * 0.88).powi(depth as i32),
+                DIR_B * (1.1 * DIR_B * 0.92).powi(depth as i32),
                 DIR_A,
             )
         })
@@ -33,9 +33,9 @@ static FILE: Lazy<[RGBA; 5]> = Lazy::new(|| {
     (0..5)
         .map(|depth| {
             RGBA::new(
-                FILE_R * (1.1 * FILE_R / 1.0).powi(depth as i32),
-                FILE_G * (1.1 * FILE_G / 1.0).powi(depth as i32),
-                FILE_B * (1.1 * FILE_B / 1.0).powi(depth as i32),
+                FILE_R * (1.2 * FILE_R * 0.77).powi(depth as i32),
+                FILE_G * (1.2 * FILE_G * 0.88).powi(depth as i32),
+                FILE_B * (1.2 * FILE_B * 0.92).powi(depth as i32),
                 FILE_A,
             )
         })
