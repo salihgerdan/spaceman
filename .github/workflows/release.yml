@@ -20,11 +20,11 @@ jobs:
           #- target: aarch64-apple-darwin
           #  name: spaceman-aarch64-osx.tar.gz
           #  os: macos-latest
-          #- target: x86_64-pc-windows-gnu
-          #  name: spaceman-x86_64-windows.zip
-          #  os: windows-latest
-          #  PKG_CONFIG_SYSROOT_DIR: 'C:/my_msys2/msys64/mingw64/'
-          #  PKG_CONFIG_PATH: 'C:/my_msys2/msys64/mingw64/lib/pkgconfig/'
+          - target: x86_64-pc-windows-gnu
+            name: spaceman-x86_64-windows.zip
+            os: windows-latest
+            PKG_CONFIG_SYSROOT_DIR: 'C:/my_msys2/msys64/mingw64/'
+            PKG_CONFIG_PATH: 'C:/my_msys2/msys64/mingw64/lib/pkgconfig/'
     runs-on: ${{ matrix.os }}
     steps:
       - name: Setup | Checkout
@@ -65,6 +65,7 @@ jobs:
           location: C:\my_msys2\
           install: >-
             mingw-w64-x86_64-gtk4
+            mingw-w64-x86_64-gsettings-desktop-schemas
             mingw-w64-x86_64-gettext
             mingw-w64-x86_64-libxml2
             mingw-w64-x86_64-librsvg
@@ -99,17 +100,29 @@ jobs:
       - name: PostBuild | Prepare | Windows
         if: matrix.os == 'windows-latest'
         run: |-
-          mkdir pkg
+          $MSYS="C:/my_msys2/msys64/mingw64/"
+           mkdir pkg
            cp target/${{ matrix.target }}/release/spaceman.exe pkg/
            cd pkg
            mkdir bin
            bash -c "ldd spaceman.exe | grep '\/mingw.*\.dll' -o | sed -z 's/[\n\r]/ /g' | xargs -d ' ' -IECHIDNA cp /c/my_msys2/msys64/ECHIDNA ./bin/"
+           cp $MSYS/bin/gdbus.exe ./bin/
+           bash -c "ldd bin/gdbus.exe | grep '\/mingw.*\.dll' -o | sed -z 's/[\n\r]/ /g' | xargs -d ' ' -IECHIDNA cp /c/my_msys2/msys64/ECHIDNA ./bin/"
+           cp $MSYS/bin/gspawn-win64-helper.exe ./bin/
+           bash "ldd bin/gspawn-win64-helper.exe | grep '\/mingw.*\.dll' -o | sed -z 's/[\n\r]/ /g' | xargs -d ' ' -IECHIDNA cp /c/my_msys2/msys64/ECHIDNA ./bin/"
+           cp $MSYS/bin/libgst*.dll ./bin/
+           cp $MSYS/bin/liborc-0.4-0.dll ./bin/
+           cp $MSYS/bin/libGLESv2.dll ./bin/  
+           cp $MSYS/bin/libEGL.dll ./bin/
+           mkdir -p share/glib-2.0/schemas/
+           glib-compile-schemas $MSYS/share/glib-2.0/schemas/
+           cp -r $MSYS/share/glib-2.0/schemas/gschemas.compiled share/glib-2.0/schemas/
+           mkdir -p lib
+           cp -r $MSYS/lib/gdk-pixbuf-2.0 lib/
+           cp -r $MSYS/lib/gtk-4.0 lib/
            strip spaceman.exe
            mv spaceman.exe bin/
-           mkdir -p share/glib-2.0/schemas/
-           glib-compile-schemas C:/my_msys2/msys64/mingw64/share/glib-2.0/schemas/
-           cp C:/my_msys2/msys64/mingw64/share/glib-2.0/schemas/gschemas.compiled share/glib-2.0/schemas/
-           7z a -r ../${{ matrix.name }} bin/ share/
+           7z a -r ../${{ matrix.name }} bin/ share/ lib/
            cd -
       - name: Get release information
         id: get_release

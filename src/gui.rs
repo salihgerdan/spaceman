@@ -27,15 +27,16 @@ fn build_ui(application: &gtk::Application) {
     let headerbar = gtk::HeaderBar::new();
     window.set_titlebar(Some(&headerbar));
 
-    let file_chooser = gtk::FileChooserDialog::new(
+    let file_chooser = gtk::FileChooserNative::new(
         Some("Choose scan target"),
         Some(&window),
         gtk::FileChooserAction::SelectFolder,
-        &[("Open", ResponseType::Ok), ("Cancel", ResponseType::Cancel)],
+        Some("Open"),
+        Some("Cancel"),
     );
 
-    file_chooser.connect_response(move |d: &gtk::FileChooserDialog, response: ResponseType| {
-        if response == ResponseType::Ok {
+    file_chooser.connect_response(move |d: &gtk::FileChooserNative, response: ResponseType| {
+        if response == ResponseType::Accept {
             let directory = d.file().expect("Couldn't get directory");
             let path = directory.path().expect("Couldn't get path");
             treemap_widget.start_scan(&path.display().to_string());
