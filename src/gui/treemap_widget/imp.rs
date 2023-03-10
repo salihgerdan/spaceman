@@ -237,7 +237,8 @@ impl WidgetImpl for TreeMapWidget {
                 let text_offset = pango::units_to_double(
                     *&obj.pango_context().font_description().unwrap().size(),
                 ) as f32
-                    + 2.0;
+                    * 1.1;
+
                 self.gui_node_map.replace(squarify::compute_gui_nodes(
                     &tree,
                     root,
