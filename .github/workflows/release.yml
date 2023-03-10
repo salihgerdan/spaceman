@@ -27,6 +27,11 @@ jobs:
             PKG_CONFIG_PATH: 'C:/my_msys2/msys64/mingw64/lib/pkgconfig/'
     runs-on: ${{ matrix.os }}
     steps:
+      - name: Get release information
+        id: get_release
+        uses: bruceadams/get-release@v1.3.2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Setup | Checkout
         uses: actions/checkout@v2
       - name: Setup | Cache Cargo
@@ -101,34 +106,35 @@ jobs:
         if: matrix.os == 'windows-latest'
         run: |-
           $MSYS="C:/my_msys2/msys64/mingw64/"
-           mkdir pkg
-           cp target/${{ matrix.target }}/release/spaceman.exe pkg/
-           cd pkg
+           mkdir spaceman
+           cp target/${{ matrix.target }}/release/spaceman.exe spaceman/
+           cd spaceman
            mkdir bin
            bash -c "ldd spaceman.exe | grep '\/mingw.*\.dll' -o | sed -z 's/[\n\r]/ /g' | xargs -d ' ' -IECHIDNA cp /c/my_msys2/msys64/ECHIDNA ./bin/"
-           cp $MSYS/bin/gdbus.exe ./bin/
-           bash -c "ldd bin/gdbus.exe | grep '\/mingw.*\.dll' -o | sed -z 's/[\n\r]/ /g' | xargs -d ' ' -IECHIDNA cp /c/my_msys2/msys64/ECHIDNA ./bin/"
-           cp $MSYS/bin/gspawn-win64-helper.exe ./bin/
-           bash "ldd bin/gspawn-win64-helper.exe | grep '\/mingw.*\.dll' -o | sed -z 's/[\n\r]/ /g' | xargs -d ' ' -IECHIDNA cp /c/my_msys2/msys64/ECHIDNA ./bin/"
-           cp $MSYS/bin/libgst*.dll ./bin/
-           cp $MSYS/bin/liborc-0.4-0.dll ./bin/
+           # These would be ideal to include but sacrifice them for package size
+           # cp $MSYS/bin/gdbus.exe ./bin/
+           # bash -c "ldd bin/gdbus.exe | grep '\/mingw.*\.dll' -o | sed -z 's/[\n\r]/ /g' | xargs -d ' ' -IECHIDNA cp /c/my_msys2/msys64/ECHIDNA ./bin/"
+           # cp $MSYS/bin/gspawn-win64-helper.exe ./bin/
+           # bash "ldd bin/gspawn-win64-helper.exe | grep '\/mingw.*\.dll' -o | sed -z 's/[\n\r]/ /g' | xargs -d ' ' -IECHIDNA cp /c/my_msys2/msys64/ECHIDNA ./bin/"
+           # cp $MSYS/bin/libgst*.dll ./bin/
+           # cp $MSYS/bin/liborc-0.4-0.dll ./bin/
            cp $MSYS/bin/libGLESv2.dll ./bin/  
            cp $MSYS/bin/libEGL.dll ./bin/
+           mv spaceman.exe bin/
+           strip bin/spaceman.exe
+           strip bin/*.dll
            mkdir -p share/glib-2.0/schemas/
            glib-compile-schemas $MSYS/share/glib-2.0/schemas/
            cp -r $MSYS/share/glib-2.0/schemas/gschemas.compiled share/glib-2.0/schemas/
            mkdir -p lib
            cp -r $MSYS/lib/gdk-pixbuf-2.0 lib/
            cp -r $MSYS/lib/gtk-4.0 lib/
-           strip spaceman.exe
-           mv spaceman.exe bin/
-           7z a -r ../${{ matrix.name }} bin/ share/ lib/
-           cd -
-      - name: Get release information
-        id: get_release
-        uses: bruceadams/get-release@v1.3.2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+           echo "${{ steps.get_release.outputs.name }}" > readme.txt
+           echo "To start the program, run bin/spaceman.exe" >> readme.txt
+           echo "" >> readme.txt
+           echo "https://github.com/salihgerdan/spaceman" >> readme.txt
+           cd ..
+           7z a -r ${{ matrix.name }} spaceman
       - name: Upload release binary
         uses: actions/upload-release-asset@v1
         env:

@@ -13,6 +13,7 @@ Treemap disk usage analyzer: *In search of lost space*
 ## Install
 Only tested on Linux, and partially MacOS. You need to have `gtk4` and `rust` installed in your system to build, and only `gtk4` to run it. The only command necessary to build is `cargo build --release` after the dependencies are installed.  
 You can also simply grab an executable from the Releases section.  
+I am not quite happy with the Windows package in a UNIX style directory tree, alas this is what was possible with the library dependencies. I am looking into alternatives.  
 There is a [PKGBUILD](./PKGBUILD) file available for Arch Linux.
 ## Usage
 Click the button on the left of the titlebar, and choose a directory to scan.
