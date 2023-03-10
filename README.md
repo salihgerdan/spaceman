@@ -16,7 +16,7 @@ You can also simply grab an executable from the Releases section.
 I am not quite happy with the Windows package in a UNIX style directory tree, alas this is what was possible with the library dependencies. I am looking into alternatives.  
 There is a [PKGBUILD](./PKGBUILD) file available for Arch Linux.
 ## Usage
-Click the button on the left of the titlebar, and choose a directory to scan.
+Click the button on the left of the titlebar, and choose a directory to scan. You can also provide a directory to scan as a command line argument.
 ## Acknowledgements
 [SpaceSniffer](http://www.uderzo.it/main_products/space_sniffer/) for inspiration  
 [Bruls, Huizing, van Wijk, "Squarified Treemaps"](https://www.win.tue.nl/~vanwijk/stm.pdf) and [TreeMonger](https://github.com/alanbernstein/treemonger) which I referenced for the squarified treemap algorithm
