@@ -1,7 +1,6 @@
 use crate::config;
 use gtk::{prelude::*, ResponseType};
 use std::rc::Rc;
-mod squarify;
 mod treemap_widget;
 use treemap_widget::TreeMapWidget;
 

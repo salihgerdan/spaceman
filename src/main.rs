@@ -3,6 +3,7 @@
 mod config;
 mod filetree;
 mod gui;
+mod squarify;
 
 fn main() {
     gui::initiate_ui();

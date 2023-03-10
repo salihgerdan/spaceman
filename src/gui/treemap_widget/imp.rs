@@ -2,7 +2,7 @@ mod bytes_display;
 mod node_color;
 
 use crate::filetree::{Node, NodeID, Tree};
-use crate::gui::squarify::{self, GUINode};
+use crate::squarify::{self, GUINode};
 use gtk::gdk::RGBA;
 use gtk::glib;
 use gtk::graphene::{Point, Rect};
