@@ -1,8 +1,9 @@
-mod bytes_display;
-mod node_color;
-
-use crate::filetree::{Node, NodeID, Tree};
-use crate::squarify::{self, GUINode};
+use crate::{
+    bytes_display,
+    filetree::{Node, NodeID, Tree},
+    node_color,
+    squarify::{self, GUINode},
+};
 use gtk::gdk::RGBA;
 use gtk::glib;
 use gtk::graphene::{Point, Rect};
