@@ -111,7 +111,7 @@ fn squarify(
 
     let mut size_a = 0;
     let mut split = 0;
-    while size_a < total_size / 2 {
+    while size_a < total_size / 2 && split < nodes.len() {
         size_a += nodes[split].size;
         split += 1;
     }
