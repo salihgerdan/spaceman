@@ -75,7 +75,7 @@ impl Default for Tree {
     }
 }
 
-pub fn walk_into_tree(tree_mutex: Arc<Mutex<Tree>>) -> jwalk::Result<()> {
+pub fn walk_into_tree(tree_mutex: Arc<Mutex<Tree>>) {
     let root_name = { tree_mutex.lock().unwrap().get_elem(0).name.clone() };
     let walkdir = WalkDir::new(root_name)
         .follow_links(false)
@@ -122,5 +122,4 @@ pub fn walk_into_tree(tree_mutex: Arc<Mutex<Tree>>) -> jwalk::Result<()> {
             }
         }
     }
-    Ok(())
 }

@@ -23,7 +23,7 @@ pub struct TreeMapWidget {
     gui_node_map: RefCell<HashMap<NodeID, GUINode>>,
     invalidate_gui_nodes_flag: RefCell<bool>,
     pub scan_complete_flag: RefCell<bool>,
-    pub thread_handle: RefCell<Option<JoinHandle<jwalk::Result<()>>>>,
+    pub thread_handle: RefCell<Option<JoinHandle<()>>>,
     last_width: RefCell<f32>,
     last_height: RefCell<f32>,
 }
