@@ -11,8 +11,6 @@ const PAD: f32 = 1.0;
 #[derive(Debug)]
 pub struct GUINode {
     pub rect: Rect,
-    pub depth: usize,
-    pub text: String,
     pub node_id: NodeID,
 }
 
@@ -49,12 +47,9 @@ fn compute_gui_nodes_imp(
     // if this is a directory or a file node
     if !node_group {
         let node = nodes.first().unwrap();
-        let txt = node.name.clone() + format!(" ({}M)", node.size / (1024 * 1024)).as_str();
 
         let gui_node = GUINode {
             rect: bound,
-            depth: dir_level,
-            text: txt,
             node_id: node.id,
         };
 
