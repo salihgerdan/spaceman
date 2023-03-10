@@ -148,7 +148,7 @@ impl ObjectImpl for TreeMapWidget {
 
     fn constructed(&self) {
         self.parent_constructed();
-        self.scan_complete_flag.replace(false);
+        self.scan_complete_flag.replace(true);
         let obj = self.obj();
         obj.set_width_request(100);
         obj.set_height_request(100);
