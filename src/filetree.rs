@@ -83,31 +83,43 @@ pub fn walk_into_tree(tree_mutex: Arc<Mutex<Tree>>) -> jwalk::Result<()> {
     let mut last_depth = 0;
     let mut last_node = 0;
     for entry in walkdir {
-        let e = entry?;
-        let file_size = e.metadata()?.len();
-        let file_name = e.file_name.into_string().unwrap_or_default();
-        let is_file = e.file_type.is_file();
-        {
-            // we lock and unlock this at every item, so the gui thread can grab it easily
-            let mut tree = tree_mutex.lock().unwrap();
-            if e.depth > last_depth {
-                tree.add_elem(last_node, file_name, is_file, file_size);
-            } else if e.depth == last_depth {
-                if let Some(parent) = tree.get_elem(last_node).parent {
-                    tree.add_elem(parent, file_name, is_file, file_size);
-                }
-            } else {
-                let mut parent = last_node;
-                for _ in e.depth..=last_depth {
-                    parent = match tree.get_elem(parent).parent {
-                        Some(p) => p,
-                        None => parent, // we never get here I guess
+        match entry {
+            Ok(e) => {
+                let file_size = match e.metadata() {
+                    Ok(metadata) => metadata.len(),
+                    Err(e) => {
+                        println!("Can't get filesize: {}", e);
+                        continue;
                     }
+                };
+                let file_name = e.file_name.into_string().unwrap_or_default();
+                let is_file = e.file_type.is_file();
+                {
+                    // we lock and unlock this at every item, so the gui thread can grab it easily
+                    let mut tree = tree_mutex.lock().unwrap();
+                    if e.depth > last_depth {
+                        tree.add_elem(last_node, file_name, is_file, file_size);
+                    } else if e.depth == last_depth {
+                        if let Some(parent) = tree.get_elem(last_node).parent {
+                            tree.add_elem(parent, file_name, is_file, file_size);
+                        }
+                    } else {
+                        let mut parent = last_node;
+                        for _ in e.depth..=last_depth {
+                            parent = match tree.get_elem(parent).parent {
+                                Some(p) => p,
+                                None => parent, // we never get here I guess
+                            }
+                        }
+                        tree.add_elem(parent, file_name, is_file, file_size);
+                    }
+                    last_depth = e.depth;
+                    last_node = tree.last_id;
                 }
-                tree.add_elem(parent, file_name, is_file, file_size);
             }
-            last_depth = e.depth;
-            last_node = tree.last_id;
+            Err(e) => {
+                println!("Can't read: {}", e);
+            }
         }
     }
     Ok(())
