@@ -5,7 +5,6 @@ use std::collections::HashMap;
 
 const MAX_FS_DEPTH: usize = 16;
 const MIN_BOX_SIZE: f32 = 20.0;
-const TEXT_OFFSET: f32 = 13.0;
 const PAD: f32 = 1.0;
 
 #[derive(Debug)]
@@ -15,8 +14,13 @@ pub struct GUINode {
 }
 
 // wrapper function
-pub fn compute_gui_nodes(tree: &Tree, root: &Node, bound: Rect) -> HashMap<NodeID, GUINode> {
-    let vec_gui_nodes = compute_gui_nodes_imp(tree, vec![root], bound, 0);
+pub fn compute_gui_nodes(
+    tree: &Tree,
+    root: &Node,
+    bound: Rect,
+    text_offset: f32,
+) -> HashMap<NodeID, GUINode> {
+    let vec_gui_nodes = compute_gui_nodes_imp(tree, vec![root], bound, 0, text_offset);
     let mut hmap: HashMap<NodeID, GUINode> = HashMap::with_capacity(vec_gui_nodes.len());
     for gui_node in vec_gui_nodes {
         hmap.insert(gui_node.node_id, gui_node);
@@ -29,6 +33,7 @@ fn compute_gui_nodes_imp(
     nodes: Vec<&Node>,
     mut bound: Rect,
     dir_level: usize,
+    text_offset: f32,
 ) -> Vec<GUINode> {
     if dir_level > MAX_FS_DEPTH
         || bound.width() < MIN_BOX_SIZE
@@ -59,9 +64,9 @@ fn compute_gui_nodes_imp(
             // add padding for directory
             bound = Rect::new(
                 bound.x() + 3.0,
-                bound.y() + TEXT_OFFSET,
+                bound.y() + text_offset,
                 bound.width() - 6.0,
-                bound.height() - TEXT_OFFSET - 3.0,
+                bound.height() - text_offset - 3.0,
             );
         }
     };
@@ -88,12 +93,14 @@ fn compute_gui_nodes_imp(
             group_a,
             bound_a,
             dir_level + subdir_level,
+            text_offset,
         ));
         gui_nodes.extend(compute_gui_nodes_imp(
             tree,
             group_b,
             bound_b,
             dir_level + subdir_level,
+            text_offset,
         ));
     }
 

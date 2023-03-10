@@ -233,10 +233,17 @@ impl WidgetImpl for TreeMapWidget {
 
             let rect = Rect::new(0.0, 0.0, w, h);
             let root = tree.get_elem(0);
-
+            let text_offset =
+                pango::units_to_double(*&obj.pango_context().font_description().unwrap().size())
+                    as f32;
+            dbg!(text_offset);
             if invalidate {
-                self.gui_node_map
-                    .replace(squarify::compute_gui_nodes(&tree, root, rect));
+                self.gui_node_map.replace(squarify::compute_gui_nodes(
+                    &tree,
+                    root,
+                    rect,
+                    text_offset,
+                ));
                 self.invalidate_gui_nodes_flag.replace(false);
             }
             update_rects(
