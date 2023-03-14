@@ -21,5 +21,6 @@ Click the button on the left of the titlebar, and choose a directory to scan. Yo
 ## Acknowledgements
 [SpaceSniffer](http://www.uderzo.it/main_products/space_sniffer/) for inspiration  
 [Bruls, Huizing, van Wijk, "Squarified Treemaps"](https://www.win.tue.nl/~vanwijk/stm.pdf) and [TreeMonger](https://github.com/alanbernstein/treemonger) which I referenced for the squarified treemap algorithm
+[dua-cli](https://github.com/Byron/dua-cli/) for reference on using the jwalk library  
 
 ![Screenshot](screenshot.png?raw=true)
