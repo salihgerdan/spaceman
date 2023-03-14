@@ -1,4 +1,4 @@
-use jwalk::WalkDir;
+use jwalk::WalkDirGeneric;
 use std::sync::{Arc, Mutex};
 
 pub type NodeID = usize;
@@ -75,11 +75,50 @@ impl Default for Tree {
     }
 }
 
+#[cfg(unix)]
+fn is_same_device(metadata: &std::fs::Metadata, root_device: &mut Option<u64>) -> bool {
+    use std::os::unix::prelude::MetadataExt;
+    match root_device {
+        None => {
+            *root_device = Some(metadata.dev());
+            true
+        }
+        Some(root_device) => metadata.dev() == *root_device,
+    }
+}
+
+#[cfg(not(unix))]
+fn is_same_device(metadata: &std::fs::Metadata, root_device: &mut Option<u64>) -> bool {
+    true
+}
+
 pub fn walk_into_tree(tree_mutex: Arc<Mutex<Tree>>) {
     let root_name = { tree_mutex.lock().unwrap().get_elem(0).name.clone() };
-    let walkdir = WalkDir::new(root_name)
-        .follow_links(false)
-        .skip_hidden(false);
+    // the root device is uninitialized, it only gets initialized when found None
+    // in the is_same_device function
+    let mut root_device = None;
+    let walkdir =
+        WalkDirGeneric::<((), Option<Result<std::fs::Metadata, jwalk::Error>>)>::new(root_name)
+            .follow_links(false)
+            .skip_hidden(false)
+            .process_read_dir(move |_, dir_entry_results| {
+                dir_entry_results
+                    .iter_mut()
+                    .for_each(move |dir_entry_result| {
+                        if let Ok(dir_entry) = dir_entry_result {
+                            if dir_entry.file_type.is_dir() {
+                                let same_device = dir_entry
+                                    .metadata()
+                                    .as_ref()
+                                    .map(|m| is_same_device(m, &mut root_device))
+                                    .unwrap_or(true);
+                                if !same_device {
+                                    dir_entry.read_children_path = None;
+                                }
+                            }
+                        }
+                    })
+            });
     let mut last_depth = 0;
     let mut last_node = 0;
     for entry in walkdir {
