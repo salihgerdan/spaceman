@@ -20,7 +20,7 @@ The Windows package, unlike the Linux and Mac executables, pack all the necessar
 Click the button on the left of the titlebar, and choose a directory to scan. You can also provide a directory to scan as a command line argument.
 ## Acknowledgements
 [SpaceSniffer](http://www.uderzo.it/main_products/space_sniffer/) for inspiration  
-[Bruls, Huizing, van Wijk, "Squarified Treemaps"](https://www.win.tue.nl/~vanwijk/stm.pdf) and [TreeMonger](https://github.com/alanbernstein/treemonger) which I referenced for the squarified treemap algorithm
+[Bruls, Huizing, van Wijk, "Squarified Treemaps"](https://www.win.tue.nl/~vanwijk/stm.pdf) and [TreeMonger](https://github.com/alanbernstein/treemonger) which I referenced for the squarified treemap algorithm  
 [dua-cli](https://github.com/Byron/dua-cli/) for reference on using the jwalk library  
 
 ![Screenshot](screenshot.png?raw=true)
