@@ -13,7 +13,7 @@ Treemap disk usage analyzer: *In search of lost space*
 ## Install
 Primarily tested for Linux, but confirmed to work on MacOS and Windows as well.  
 **To build**: You need to have `gtk4` (`libgtk-4-dev` on Ubuntu/Debian) and `rust`/`cargo`. The only command necessary to build is `cargo build --release` after the dependencies are installed.  
-**To run**: Ensure `gtk4` (`libgtk-4-1` on Ubuntu/Debian) is installed.  
+**To run**: Ensure `gtk4` (`libgtk-4-1` on Ubuntu/Debian, `brew install gtk4` on MacOS) is installed.  
 You can also simply grab an executable from the [Releases](https://github.com/salihgerdan/spaceman/releases) section. There is a [PKGBUILD](./PKGBUILD) file available for Arch Linux.  
 The Windows package, unlike the Linux and Mac executables, pack all the necessary libraries within the archive so you do not have to install gtk4 separately. I am not quite happy with the Windows package in a UNIX style directory tree, alas this is what was possible with the library dependencies. I am looking into alternatives.  
 ## Usage
