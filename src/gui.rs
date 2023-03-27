@@ -27,6 +27,10 @@ fn build_ui(application: &gtk::Application, arg_dirs: &[gtk::gio::File], _: &str
     let headerbar = gtk::HeaderBar::new();
     window.set_titlebar(Some(&headerbar));
 
+    let open_button = gtk::Button::new();
+    open_button.set_icon_name("document-open");
+    headerbar.pack_start(&open_button);
+
     let file_chooser = gtk::FileChooserNative::new(
         Some("Choose scan target"),
         Some(&window),
@@ -35,21 +39,22 @@ fn build_ui(application: &gtk::Application, arg_dirs: &[gtk::gio::File], _: &str
         Some("Cancel"),
     );
 
-    file_chooser.connect_response(glib::clone!(@weak treemap_widget => move |d: &gtk::FileChooserNative, response: ResponseType| {
-        if response == ResponseType::Accept {
-            let directory = d.file().expect("Couldn't get directory");
-            let path = directory.path().expect("Couldn't get path");
-            treemap_widget.start_scan(path.to_str().unwrap());
-            println!("{}", path.display());
-        }
+    open_button.connect_clicked(
+        glib::clone!(@weak window, @weak treemap_widget => move |_| {
+        file_chooser.set_transient_for(Some(&window));
+        file_chooser.connect_response(move |d: &gtk::FileChooserNative, response: ResponseType| {
+            if response == ResponseType::Accept {
+                let directory = d.file().expect("Couldn't get directory");
+                let path = directory.path().expect("Couldn't get path");
+                treemap_widget.start_scan(path.to_str().unwrap());
+                println!("{}", path.display());
+            }
+            d.destroy();
+        });
 
-        d.hide();
-    }));
-
-    let open_button = gtk::Button::new();
-    open_button.set_icon_name("document-open");
-    headerbar.pack_start(&open_button);
-    open_button.connect_clicked(move |_| file_chooser.show());
+        file_chooser.show();
+        }),
+    );
 
     if let Some(dir) = arg_dirs.get(0) {
         treemap_widget.start_scan(dir.path().expect("Couldn't get path").to_str().unwrap());
