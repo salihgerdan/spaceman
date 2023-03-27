@@ -5,7 +5,7 @@ Treemap disk usage analyzer: *In search of lost space*
 ## Features
 - [X] Fast scan and display, with the power of Rust, and gtk4 gpu rendering capabilities
 - [X] Uses the jwalk library as [dua-cli](https://github.com/Byron/dua-cli/) does, enabling multi-threaded scans
-- [x] Visible from the start, incrementally updates the view as the scan goes on
+- [x] **Live** display of scan results, no need to wait for the scan to complete
 ## Planned
 - [ ] Tracks changes on the filesystem
 - [ ] Navigate into sub-directories
