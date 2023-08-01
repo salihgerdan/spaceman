@@ -8,6 +8,20 @@ pub fn initiate_ui() {
     let application = gtk::Application::new(Some(config::APP_NAME), ApplicationFlags::HANDLES_OPEN);
     application.connect_open(build_ui);
     application.connect_activate(|app| build_ui(app, &[], ""));
+
+    let action_show = gtk::gio::SimpleAction::new("show", Some(glib::VariantTy::STRING));
+    action_show.connect_activate(glib::clone!(@weak application => move |_, param| {
+        param.map(|x| {
+            gtk::show_uri(None::<&gtk::Window>, x.to_string().trim_matches('\''), 0);
+            //dbg!(gtk::gio::AppInfo::launch_default_for_uri(x.to_string().as_str(), None::<&gtk::gdk::AppLaunchContext>))
+        });
+    }));
+    let action_disabled = gtk::gio::SimpleAction::new("disabled", None);
+    action_disabled.set_enabled(false);
+
+    application.add_action(&action_show);
+    application.add_action(&action_disabled);
+
     application.run();
 }
 

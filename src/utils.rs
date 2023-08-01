@@ -10,3 +10,10 @@ pub fn bytes_display(bytes: u64) -> String {
         format!("{}B", bytes)
     }
 }
+
+pub fn abbreviate_string(s: &str, max_chars: usize) -> String {
+    match s.char_indices().nth(max_chars) {
+        None => s.to_string(),
+        Some((idx, _)) => s[..idx - 3].to_string() + "...",
+    }
+}

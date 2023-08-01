@@ -38,6 +38,15 @@ impl Tree {
             node = p;
         }
     }
+    pub fn get_full_path(&self, mut node: NodeID) -> String {
+        let mut filename = self.elems[node].name.to_string();
+        while let Some(p) = self.elems[node].parent {
+            let separator = if cfg!(unix) { "/" } else { "\\" };
+            filename = self.elems[p].name.to_string() + separator + filename.as_str();
+            node = p;
+        }
+        filename
+    }
     pub fn add_elem(&mut self, parent: NodeID, name: String, is_file: bool, size: u64) {
         self.last_id += 1;
         let node = Node {

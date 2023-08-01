@@ -1,8 +1,8 @@
 use crate::{
-    bytes_display,
     filetree::{Node, NodeID, Tree},
     node_color,
     squarify::{self, GUINode},
+    utils,
 };
 use gtk::gdk::RGBA;
 use gtk::glib;
@@ -10,6 +10,7 @@ use gtk::graphene::{Point, Rect};
 use gtk::pango;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
+use gtk::PopoverMenu;
 use gtk::Tooltip;
 use once_cell::sync::Lazy;
 use std::cell::RefCell;
@@ -27,6 +28,7 @@ pub struct TreeMapWidget {
     pub thread_handle: RefCell<Option<JoinHandle<()>>>,
     last_width: RefCell<f32>,
     last_height: RefCell<f32>,
+    popover_menu: RefCell<Option<PopoverMenu>>,
 }
 
 #[glib::object_subclass]
@@ -79,12 +81,7 @@ fn query_tooltip(
         let found_node = locate_node(&tree, root, &gui_node_map, x as f32, y as f32);
         if let Some(node) = found_node {
             tooltip.set_text(Some(
-                format!(
-                    "{} ({})",
-                    node.name,
-                    bytes_display::bytes_display(node.size)
-                )
-                .as_str(),
+                format!("{} ({})", node.name, utils::bytes_display(node.size)).as_str(),
             ));
             // unwrap okay, we found it already
             let rect = gui_node_map.get(&node.id).unwrap().rect;
@@ -97,6 +94,57 @@ fn query_tooltip(
             true
         } else {
             false
+        }
+    }
+}
+
+fn create_context_menu(widget: &super::TreeMapWidget, x: f64, y: f64) {
+    let imp = widget.imp();
+    let gui_node_map = imp.gui_node_map.borrow();
+    let tree_mutex = &imp.tree_mutex;
+    let (found_node, uri, parent_uri) = {
+        let tree = tree_mutex.lock().unwrap();
+        let root = tree.get_elem(0);
+        let found_node =
+            locate_node(&tree, root, &gui_node_map, x as f32, y as f32).map(|x| x.clone());
+        let uri = found_node
+            .as_ref()
+            .and_then(|node| glib::filename_to_uri(tree.get_full_path(node.id), None).ok());
+        let parent_uri = found_node
+            .as_ref()
+            .and_then(|node| node.parent)
+            .map(|node_id| tree.get_elem(node_id))
+            .and_then(|node| glib::filename_to_uri(tree.get_full_path(node.id), None).ok());
+        (found_node, uri, parent_uri)
+    };
+    if let (Some(node), Some(uri)) = (found_node, uri) {
+        if let Some(popover_menu) = imp.popover_menu.borrow().as_ref() {
+            popover_menu.set_pointing_to(Some(&gtk::gdk::Rectangle::new(x as i32, y as i32, 1, 1)));
+            let menu = gtk::gio::Menu::new();
+            let menu_item_name = gtk::gio::MenuItem::new(
+                Some(&utils::abbreviate_string(&node.name, 15)),
+                Some("app.disabled"),
+            );
+            menu.append_item(&menu_item_name);
+            let open_action_name = format!("app.show(\"{}\")", uri);
+            let menu_item_open =
+                gtk::gio::MenuItem::new(Some("Open"), Some(open_action_name.as_str()));
+            menu.append_item(&menu_item_open);
+
+            if node.is_file {
+                if let Some(parent_uri) = parent_uri {
+                    let dir_action_name = format!("app.show(\"{}\")", parent_uri);
+                    let menu_item_dir = gtk::gio::MenuItem::new(
+                        Some("Show directory"),
+                        Some(dir_action_name.as_str()),
+                    );
+                    menu.append_item(&menu_item_dir);
+                }
+            }
+
+            popover_menu.set_menu_model(Some(&menu));
+
+            popover_menu.show();
         }
     }
 }
@@ -154,6 +202,22 @@ impl ObjectImpl for TreeMapWidget {
         obj.set_height_request(100);
         obj.set_has_tooltip(true);
         obj.connect_query_tooltip(query_tooltip);
+        self.popover_menu.replace(Some({
+            let menu = PopoverMenu::from_model(None::<&gtk::gio::MenuModel>);
+            menu.set_parent(&*obj);
+            menu.set_has_arrow(false);
+            menu.set_halign(gtk::Align::Start);
+            menu
+        }));
+
+        let right_click = gtk::GestureClick::new();
+        right_click.set_button(gtk::gdk::ffi::GDK_BUTTON_SECONDARY as u32);
+        right_click.connect_pressed(glib::clone!(@weak obj => move |right_click, _, x, y| {
+            right_click.set_state(gtk::EventSequenceState::Claimed);
+            create_context_menu(&obj, x, y);
+        }));
+
+        obj.add_controller(right_click);
 
         // start refresh timer
         let nano_to_milli = 1000000;
@@ -167,6 +231,9 @@ impl ObjectImpl for TreeMapWidget {
         // Child widgets need to be manually unparented in `dispose()`.
         if let Some(child) = self.child.borrow_mut().take() {
             child.unparent();
+        }
+        if let Some(popover_menu) = self.popover_menu.borrow_mut().take() {
+            popover_menu.unparent();
         }
     }
 }
@@ -189,7 +256,7 @@ fn update_rects(
         layout.set_text(&format!(
             "{} ({})",
             &node.name,
-            bytes_display::bytes_display(node.size)
+            utils::bytes_display(node.size)
         ));
         let pango_w = pango::units_from_double(gui_node.rect.width() as f64);
         layout.set_width(pango_w);
