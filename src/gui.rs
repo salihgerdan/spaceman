@@ -12,8 +12,16 @@ pub fn initiate_ui() {
     let action_show = gtk::gio::SimpleAction::new("show", Some(glib::VariantTy::STRING));
     action_show.connect_activate(glib::clone!(@weak application => move |_, param| {
         param.map(|x| {
-            gtk::show_uri(None::<&gtk::Window>, x.to_string().trim_matches('\''), 0);
-            //dbg!(gtk::gio::AppInfo::launch_default_for_uri(x.to_string().as_str(), None::<&gtk::gdk::AppLaunchContext>))
+            if cfg!(windows) {
+                use std::process::Command;
+                Command::new("explorer.exe")
+                    .args(&[x.to_string().trim_matches('\'')])
+                    .spawn()
+                    .expect("failed to execute process");
+            } else {
+                gtk::show_uri(None::<&gtk::Window>, x.to_string().trim_matches('\''), 0);
+            }
+        //dbg!(gtk::gio::AppInfo::launch_default_for_uri(x.to_string().as_str(), None::<&gtk::gdk::AppLaunchContext>))
         });
     }));
     let action_disabled = gtk::gio::SimpleAction::new("disabled", None);
