@@ -118,8 +118,8 @@ jobs:
            # bash "ldd bin/gspawn-win64-helper.exe | grep '\/mingw.*\.dll' -o | sed -z 's/[\n\r]/ /g' | xargs -d ' ' -IECHIDNA cp /c/my_msys2/msys64/ECHIDNA ./bin/"
            # cp $MSYS/bin/libgst*.dll ./bin/
            # cp $MSYS/bin/liborc-0.4-0.dll ./bin/
-           cp $MSYS/bin/libGLESv2.dll ./bin/  
-           cp $MSYS/bin/libEGL.dll ./bin/
+           # cp $MSYS/bin/libGLESv2.dll ./bin/  
+           # cp $MSYS/bin/libEGL.dll ./bin/
            mv spaceman.exe bin/
            strip bin/spaceman.exe
            strip bin/*.dll
@@ -128,7 +128,7 @@ jobs:
            cp -r $MSYS/share/glib-2.0/schemas/gschemas.compiled share/glib-2.0/schemas/
            mkdir -p lib
            cp -r $MSYS/lib/gdk-pixbuf-2.0 lib/
-           cp -r $MSYS/lib/gtk-4.0 lib/
+           # cp -r $MSYS/lib/gtk-4.0 lib/
            echo "${{ steps.get_release.outputs.name }}" > readme.txt
            echo "To start the program, run bin/spaceman.exe" >> readme.txt
            echo "" >> readme.txt
