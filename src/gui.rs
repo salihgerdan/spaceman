@@ -1,4 +1,4 @@
-use crate::config;
+use crate::{config, scan::Scan};
 use gtk::{gio::ApplicationFlags, glib, prelude::*, ResponseType};
 use std::rc::Rc;
 mod treemap_widget;
@@ -68,7 +68,7 @@ fn build_ui(application: &gtk::Application, arg_dirs: &[gtk::gio::File], _: &str
             if response == ResponseType::Accept {
                 let directory = d.file().expect("Couldn't get directory");
                 let path = directory.path().expect("Couldn't get path");
-                treemap_widget.start_scan(path.to_str().unwrap());
+                treemap_widget.replace_scan(Scan::new(&path.to_string_lossy().to_owned()));
                 println!("{}", path.display());
             }
             d.destroy();
@@ -79,7 +79,12 @@ fn build_ui(application: &gtk::Application, arg_dirs: &[gtk::gio::File], _: &str
     );
 
     if let Some(dir) = arg_dirs.get(0) {
-        treemap_widget.start_scan(dir.path().expect("Couldn't get path").to_str().unwrap());
+        treemap_widget.replace_scan(Scan::new(
+            &dir.path()
+                .expect("Couldn't get path")
+                .to_string_lossy()
+                .to_owned(),
+        ));
     }
 
     window.show();

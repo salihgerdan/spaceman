@@ -5,6 +5,7 @@ mod filetree;
 mod gui;
 mod mounts;
 mod node_color;
+mod scan;
 mod squarify;
 mod utils;
 

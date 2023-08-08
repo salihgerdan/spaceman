@@ -1,10 +1,10 @@
 mod imp;
 
-use crate::filetree::{self, Tree};
+use crate::scan::Scan;
 use gtk::glib;
+use gtk::prelude::*;
 use gtk::subclass::prelude::ObjectSubclassIsExt;
-use std::sync::{Arc, Mutex};
-use std::thread;
+use std::cell::RefCell;
 
 glib::wrapper! {
     pub struct TreeMapWidget(ObjectSubclass<imp::TreeMapWidget>)
@@ -22,22 +22,16 @@ impl TreeMapWidget {
     pub fn new() -> Self {
         glib::Object::new()
     }
-    pub fn get_tree_mutex(&self) -> &Arc<Mutex<Tree>> {
-        &self.imp().tree_mutex
+    pub fn get_current_scan(&self) -> &RefCell<Option<Scan>> {
+        &self.imp().scan
     }
-    pub fn start_scan(&self, directory: &str) {
+    pub fn replace_scan(&self, scan: Scan) {
         let imp = self.imp();
-        // do not change the root in the middle of a scan
-        if imp.scan_complete_flag.borrow().clone() == true {
-            {
-                let mut tree = imp.tree_mutex.lock().unwrap();
-                tree.set_root(directory);
-            }
-            imp.scan_complete_flag.replace(false);
-            let tree_mutex_clone = imp.tree_mutex.clone();
-            imp.thread_handle.replace(Some(thread::spawn(move || {
-                filetree::walk_into_tree(tree_mutex_clone)
-            })));
-        }
+        imp.scan.replace(Some(scan));
+        let nano_to_milli = 1000000;
+        gtk::glib::timeout_add_local(
+            std::time::Duration::new(0, 300 * nano_to_milli),
+            glib::clone!(@weak self as widget => @default-return Continue(false), move || imp::refresh(&widget)),
+        );
     }
 }

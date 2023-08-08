@@ -1,6 +1,7 @@
 use crate::{
     filetree::{Node, NodeID, Tree},
     node_color,
+    scan::Scan,
     squarify::{self, GUINode},
     utils,
 };
@@ -15,17 +16,14 @@ use gtk::Tooltip;
 use once_cell::sync::Lazy;
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
-use std::thread::JoinHandle;
+use std::sync::atomic::Ordering;
 
 #[derive(Debug, Default)]
 pub struct TreeMapWidget {
     child: RefCell<Option<gtk::Widget>>,
-    pub tree_mutex: Arc<Mutex<Tree>>,
+    pub scan: RefCell<Option<Scan>>,
     gui_node_map: RefCell<HashMap<NodeID, GUINode>>,
     invalidate_gui_nodes_flag: RefCell<bool>,
-    pub scan_complete_flag: RefCell<bool>,
-    pub thread_handle: RefCell<Option<JoinHandle<()>>>,
     last_width: RefCell<f32>,
     last_height: RefCell<f32>,
     popover_menu: RefCell<Option<PopoverMenu>>,
@@ -74,9 +72,8 @@ fn query_tooltip(
 ) -> bool {
     let imp = widget.imp();
     let gui_node_map = imp.gui_node_map.borrow();
-    let tree_mutex = &imp.tree_mutex;
-    {
-        let tree = tree_mutex.lock().unwrap();
+    if let Some(scan) = imp.scan.borrow().as_ref() {
+        let tree = scan.tree_mutex.lock().unwrap();
         let root = tree.get_elem(0);
         let found_node = locate_node(&tree, root, &gui_node_map, x as f32, y as f32);
         if let Some(node) = found_node {
@@ -95,27 +92,32 @@ fn query_tooltip(
         } else {
             false
         }
+    } else {
+        false
     }
 }
 
 fn create_context_menu(widget: &super::TreeMapWidget, x: f64, y: f64) {
     let imp = widget.imp();
     let gui_node_map = imp.gui_node_map.borrow();
-    let tree_mutex = &imp.tree_mutex;
     let (found_node, uri, parent_uri) = {
-        let tree = tree_mutex.lock().unwrap();
-        let root = tree.get_elem(0);
-        let found_node =
-            locate_node(&tree, root, &gui_node_map, x as f32, y as f32).map(|x| x.clone());
-        let uri = found_node
-            .as_ref()
-            .and_then(|node| glib::filename_to_uri(tree.get_full_path(node.id), None).ok());
-        let parent_uri = found_node
-            .as_ref()
-            .and_then(|node| node.parent)
-            .map(|node_id| tree.get_elem(node_id))
-            .and_then(|node| glib::filename_to_uri(tree.get_full_path(node.id), None).ok());
-        (found_node, uri, parent_uri)
+        if let Some(scan) = imp.scan.borrow().as_ref() {
+            let tree = scan.tree_mutex.lock().unwrap();
+            let root = tree.get_elem(0);
+            let found_node =
+                locate_node(&tree, root, &gui_node_map, x as f32, y as f32).map(|x| x.clone());
+            let uri = found_node
+                .as_ref()
+                .and_then(|node| glib::filename_to_uri(tree.get_full_path(node.id), None).ok());
+            let parent_uri = found_node
+                .as_ref()
+                .and_then(|node| node.parent)
+                .map(|node_id| tree.get_elem(node_id))
+                .and_then(|node| glib::filename_to_uri(tree.get_full_path(node.id), None).ok());
+            (found_node, uri, parent_uri)
+        } else {
+            return;
+        }
     };
     if let (Some(node), Some(uri)) = (found_node, uri) {
         if let Some(popover_menu) = imp.popover_menu.borrow().as_ref() {
@@ -150,22 +152,15 @@ fn create_context_menu(widget: &super::TreeMapWidget, x: f64, y: f64) {
 }
 
 // try making this an associated function
-fn refresh(widget: &super::TreeMapWidget) -> Continue {
+pub fn refresh(widget: &super::TreeMapWidget) -> Continue {
     let imp = widget.imp();
-    if *imp.scan_complete_flag.borrow() == false {
-        imp.invalidate_gui_nodes_flag.replace(true);
-        widget.queue_draw();
-        let finished = imp
-            .thread_handle
-            .borrow()
-            .as_ref()
-            .map(|x| x.is_finished())
-            .unwrap_or(true);
-        if finished {
-            imp.scan_complete_flag.replace(true);
+    imp.invalidate_gui_nodes_flag.replace(true);
+    widget.queue_draw();
+    if let Some(scan) = imp.scan.borrow().as_ref() {
+        if scan.complete.load(Ordering::SeqCst) == true {
+            return Continue(false);
         }
     }
-
     Continue(true)
 }
 
@@ -196,7 +191,6 @@ impl ObjectImpl for TreeMapWidget {
 
     fn constructed(&self) {
         self.parent_constructed();
-        self.scan_complete_flag.replace(true);
         let obj = self.obj();
         obj.set_width_request(100);
         obj.set_height_request(100);
@@ -218,13 +212,6 @@ impl ObjectImpl for TreeMapWidget {
         }));
 
         obj.add_controller(right_click);
-
-        // start refresh timer
-        let nano_to_milli = 1000000;
-        gtk::glib::timeout_add_local(
-            std::time::Duration::new(0, 300 * nano_to_milli),
-            glib::clone!(@weak obj => @default-return Continue(false), move || refresh(&obj)),
-        );
     }
 
     fn dispose(&self) {
@@ -295,8 +282,8 @@ impl WidgetImpl for TreeMapWidget {
             self.last_width.replace(w);
         }
 
-        {
-            let tree = self.tree_mutex.lock().unwrap();
+        if let Some(scan) = self.scan.borrow().as_ref() {
+            let tree = scan.tree_mutex.lock().unwrap();
 
             let rect = Rect::new(0.0, 0.0, w, h);
             let root = tree.get_elem(0);
