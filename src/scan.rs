@@ -1,4 +1,4 @@
-use crate::filetree::Tree;
+use crate::{config, filetree::Tree};
 use jwalk::WalkDirGeneric;
 use std::fs;
 use std::sync::{
@@ -107,25 +107,27 @@ fn walk_into_tree(
             });
     let mut last_depth = 0;
     let mut last_node = 0;
-    for entry in walkdir {
-        // TODO: batch by 16 entries
-        if terminate_signal.load(Ordering::SeqCst) {
-            break;
-        }
-        match entry {
-            Ok(e) => {
-                let file_size = match e.metadata() {
-                    Ok(metadata) => metadata.len(),
-                    Err(e) => {
-                        println!("Can't get filesize: {}", e);
-                        continue;
-                    }
-                };
-                let file_name = e.file_name.into_string().unwrap_or_default();
-                let is_file = e.file_type.is_file();
-                {
-                    // we lock and unlock this at every item, so the gui thread can grab it easily
-                    let mut tree = tree.lock().unwrap();
+    let mut iter = walkdir.into_iter().peekable();
+    while iter.peek().is_some() {
+        // we split the entries into chunks of a predefined size
+        // and then lock the mutex to improve performance
+        let chunk: Vec<_> = iter.by_ref().take(config::CHUNK_SIZE).collect();
+        let mut tree = tree.lock().unwrap();
+        for entry in chunk {
+            if terminate_signal.load(Ordering::SeqCst) {
+                break;
+            }
+            match entry {
+                Ok(e) => {
+                    let file_size = match e.metadata() {
+                        Ok(metadata) => metadata.len(),
+                        Err(e) => {
+                            println!("Can't get filesize: {}", e);
+                            continue;
+                        }
+                    };
+                    let file_name = e.file_name.into_string().unwrap_or_default();
+                    let is_file = e.file_type.is_file();
                     if e.depth > last_depth {
                         tree.add_elem(last_node, file_name, is_file, file_size);
                     } else if e.depth == last_depth {
@@ -145,9 +147,9 @@ fn walk_into_tree(
                     last_depth = e.depth;
                     last_node = tree.last_id;
                 }
-            }
-            Err(e) => {
-                println!("Can't read: {}", e);
+                Err(e) => {
+                    println!("Can't read: {}", e);
+                }
             }
         }
     }
