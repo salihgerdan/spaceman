@@ -1,6 +1,7 @@
 use crate::{config, scan::Scan};
 use gtk::{gio::ApplicationFlags, glib, prelude::*, ResponseType};
 use std::rc::Rc;
+mod progressbar;
 mod treemap_widget;
 use treemap_widget::TreeMapWidget;
 
@@ -37,14 +38,18 @@ fn build_ui(application: &gtk::Application, arg_dirs: &[gtk::gio::File], _: &str
     let window = gtk::ApplicationWindow::new(application);
 
     window.set_title(Some(config::APP_TITLE));
-    window.set_default_size(350, 70);
+    window.set_default_size(640, 480);
 
-    let gtk_box = Rc::new(gtk::Box::default());
+    let gtk_box = Rc::new(gtk::Box::new(gtk::Orientation::Vertical, 0));
     window.set_child(Some(&*gtk_box));
+
+    let progress_bar = gtk::ProgressBar::new();
+    gtk_box.append(&progress_bar);
 
     let treemap_widget = TreeMapWidget::new();
     gtk_box.append(&treemap_widget);
     treemap_widget.set_hexpand(true);
+    treemap_widget.set_vexpand(true);
 
     let headerbar = gtk::HeaderBar::new();
     window.set_titlebar(Some(&headerbar));
@@ -62,13 +67,15 @@ fn build_ui(application: &gtk::Application, arg_dirs: &[gtk::gio::File], _: &str
     );
 
     open_button.connect_clicked(
-        glib::clone!(@weak window, @weak treemap_widget => move |_| {
+        glib::clone!(@weak window, @weak treemap_widget, @weak progress_bar => move |_| {
         file_chooser.set_transient_for(Some(&window));
         file_chooser.connect_response(move |d: &gtk::FileChooserNative, response: ResponseType| {
             if response == ResponseType::Accept {
                 let directory = d.file().expect("Couldn't get directory");
                 let path = directory.path().expect("Couldn't get path");
-                treemap_widget.replace_scan(Scan::new(&path.to_string_lossy().to_owned()));
+                let scan = Scan::new(&path.to_string_lossy().to_owned());
+                treemap_widget.replace_scan(scan.clone());
+                progressbar::start_progressbar_timer(&progress_bar, scan);
                 println!("{}", path.display());
             }
             d.destroy();
@@ -79,12 +86,10 @@ fn build_ui(application: &gtk::Application, arg_dirs: &[gtk::gio::File], _: &str
     );
 
     if let Some(dir) = arg_dirs.get(0) {
-        treemap_widget.replace_scan(Scan::new(
-            &dir.path()
-                .expect("Couldn't get path")
-                .to_string_lossy()
-                .to_owned(),
-        ));
+        let path = dir.path().expect("Couldn't get path");
+        let scan = Scan::new(&path.to_string_lossy().to_owned());
+        treemap_widget.replace_scan(scan.clone());
+        progressbar::start_progressbar_timer(&progress_bar, scan);
     }
 
     window.show();

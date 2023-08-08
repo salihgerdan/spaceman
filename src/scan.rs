@@ -1,5 +1,6 @@
 use crate::filetree::Tree;
 use jwalk::WalkDirGeneric;
+use std::fs;
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc, Mutex,
@@ -11,6 +12,7 @@ pub struct Scan {
     pub tree_mutex: Arc<Mutex<Tree>>,
     pub complete: Arc<AtomicBool>,
     terminate_signal: Arc<AtomicBool>,
+    progress_count: usize,
 }
 
 impl Scan {
@@ -21,6 +23,7 @@ impl Scan {
         let terminate_signal_clone = terminate_signal.clone();
         let complete = Arc::new(AtomicBool::new(false));
         let complete_clone = complete.clone();
+        let progress_count = preliminary_progress_count(directory);
         thread::spawn(move || {
             walk_into_tree(tree_mutex_clone, terminate_signal_clone, complete_clone)
         });
@@ -28,6 +31,16 @@ impl Scan {
             tree_mutex,
             complete,
             terminate_signal,
+            progress_count,
+        }
+    }
+    pub fn progress(&self) -> f64 {
+        if self.complete.load(Ordering::SeqCst) {
+            1.0
+        } else {
+            (self.tree_mutex.lock().unwrap().get_elem(0).children.len() as f64
+                / self.progress_count as f64)
+                * 0.9
         }
     }
 }
@@ -54,6 +67,11 @@ fn is_same_device(metadata: &std::fs::Metadata, root_device: &mut Option<u64>) -
 #[cfg(not(unix))]
 fn is_same_device(metadata: &std::fs::Metadata, root_device: &mut Option<u64>) -> bool {
     true
+}
+
+fn preliminary_progress_count(directory: &str) -> usize {
+    let contained = fs::read_dir(directory).expect("Cannot open directory");
+    contained.count()
 }
 
 fn walk_into_tree(
