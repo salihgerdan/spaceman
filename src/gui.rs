@@ -48,8 +48,14 @@ fn build_ui(application: &gtk::Application, arg_dirs: &[gtk::gio::File], _: &str
 
     let treemap_widget = TreeMapWidget::new();
     gtk_box.append(&treemap_widget);
+    treemap_widget.hide();
     treemap_widget.set_hexpand(true);
     treemap_widget.set_vexpand(true);
+
+    let label = gtk::Label::new(Some("Please click the top-left button to start a scan"));
+    gtk_box.append(&label);
+    label.set_hexpand(true);
+    label.set_vexpand(true);
 
     let headerbar = gtk::HeaderBar::new();
     window.set_titlebar(Some(&headerbar));
@@ -67,10 +73,12 @@ fn build_ui(application: &gtk::Application, arg_dirs: &[gtk::gio::File], _: &str
     );
 
     open_button.connect_clicked(
-        glib::clone!(@weak window, @weak treemap_widget, @weak progress_bar => move |_| {
+        glib::clone!(@weak window, @weak treemap_widget, @weak progress_bar, @weak label => move |_| {
         file_chooser.set_transient_for(Some(&window));
         file_chooser.connect_response(move |d: &gtk::FileChooserNative, response: ResponseType| {
             if response == ResponseType::Accept {
+                label.hide();
+                treemap_widget.show();
                 let directory = d.file().expect("Couldn't get directory");
                 let path = directory.path().expect("Couldn't get path");
                 let scan = Scan::new(&path.to_string_lossy().to_owned());
@@ -86,6 +94,8 @@ fn build_ui(application: &gtk::Application, arg_dirs: &[gtk::gio::File], _: &str
     );
 
     if let Some(dir) = arg_dirs.get(0) {
+        label.hide();
+        treemap_widget.show();
         let path = dir.path().expect("Couldn't get path");
         let scan = Scan::new(&path.to_string_lossy().to_owned());
         treemap_widget.replace_scan(scan.clone());
