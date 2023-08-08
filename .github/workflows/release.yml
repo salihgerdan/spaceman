@@ -83,6 +83,7 @@ jobs:
           echo "C:\my_msys2\msys64\mingw64\include" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
           echo "C:\my_msys2\msys64\mingw64\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
           echo "C:\my_msys2\msys64\mingw64\lib" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          msys2 -c 'pacman --noconfirm -U https://repo.msys2.org/mingw/mingw64/mingw-w64-x86_64-pkgconf-1~1.8.0-2-any.pkg.tar.zst'
       - name: Build
         uses: actions-rs/cargo@v1.0.3
         with:
