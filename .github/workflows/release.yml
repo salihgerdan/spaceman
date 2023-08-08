@@ -87,7 +87,7 @@ jobs:
         uses: actions-rs/cargo@v1.0.3
         with:
           command: build
-          args: --release --target ${{ matrix.target }}'
+          args: --release --frozen --target ${{ matrix.target }}'
           use-cross: ${{ matrix.os == 'ubuntu-latest' && matrix.target !=
             'x86_64-unknown-linux-gnu' }}
         env:
