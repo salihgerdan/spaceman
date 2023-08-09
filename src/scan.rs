@@ -48,6 +48,7 @@ impl Scan {
 impl Drop for Scan {
     fn drop(&mut self) {
         // this will signal to the scan thread to exit after the Scan struct is out of scope
+        self.complete.store(true, Ordering::SeqCst);
         self.terminate_signal.store(true, Ordering::SeqCst);
     }
 }
