@@ -4,8 +4,10 @@ use gtk::prelude::*;
 use std::sync::atomic::Ordering;
 
 fn progressbar_refresh(widget: &gtk::ProgressBar, scan: &Scan) -> Continue {
+    // measure complete beforehand so we do not fall behind and send Continue(false) prematurely
+    let complete = scan.complete.load(Ordering::SeqCst);
     widget.set_fraction(scan.progress());
-    Continue(!scan.complete.load(Ordering::SeqCst))
+    Continue(!complete)
 }
 
 pub fn start_progressbar_timer(widget: &gtk::ProgressBar, scan: Scan) {
