@@ -39,7 +39,13 @@ impl Tree {
         let mut filename = self.elems[node].name.to_string();
         while let Some(p) = self.elems[node].parent {
             let separator = if cfg!(unix) { "/" } else { "\\" };
-            filename = self.elems[p].name.to_string() + separator + filename.as_str();
+            // this check is important because the root can be C:\ and we might end up with C:\\
+            // although not a problem for linux paths
+            if self.elems[p].name.ends_with(separator) {
+                filename = self.elems[p].name.to_string() + filename.as_str();
+            } else {
+                filename = self.elems[p].name.to_string() + separator + filename.as_str();
+            }
             node = p;
         }
         filename
