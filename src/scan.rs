@@ -110,14 +110,14 @@ fn walk_into_tree(
     let mut last_node = 0;
     let mut iter = walkdir.into_iter().peekable();
     while iter.peek().is_some() {
+        if terminate_signal.load(Ordering::SeqCst) {
+            break;
+        }
         // we split the entries into chunks of a predefined size
         // and then lock the mutex to improve performance
         let chunk: Vec<_> = iter.by_ref().take(config::CHUNK_SIZE).collect();
         let mut tree = tree.lock().unwrap();
         for entry in chunk {
-            if terminate_signal.load(Ordering::SeqCst) {
-                break;
-            }
             match entry {
                 Ok(e) => {
                     let file_size = match e.metadata() {
