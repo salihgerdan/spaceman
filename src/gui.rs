@@ -95,6 +95,11 @@ fn build_ui(application: &gtk::Application, arg_dirs: &[gtk::gio::File], _: &str
     open_button.set_icon_name("document-open");
     headerbar.pack_start(&open_button);
 
+    let refresh_button = gtk::Button::new();
+    refresh_button.set_icon_name("view-refresh");
+    refresh_button.set_sensitive(false);
+    headerbar.pack_end(&refresh_button);
+
     let file_chooser = gtk::FileChooserNative::new(
         Some("Choose scan target"),
         Some(&window),
@@ -105,7 +110,7 @@ fn build_ui(application: &gtk::Application, arg_dirs: &[gtk::gio::File], _: &str
 
     let progress_bar_manager_clone_open = progress_bar_manager.clone();
     open_button.connect_clicked(
-        glib::clone!(@weak window, @weak treemap_widget, @weak label => move |_| {
+        glib::clone!(@weak window, @weak refresh_button, @weak treemap_widget, @weak label => move |_| {
         file_chooser.set_transient_for(Some(&window));
         let progress_bar_manager_clone_open2 = progress_bar_manager_clone_open.clone();
         file_chooser.connect_response(move |d: &gtk::FileChooserNative, response: ResponseType| {
@@ -117,6 +122,7 @@ fn build_ui(application: &gtk::Application, arg_dirs: &[gtk::gio::File], _: &str
                 let scan = Rc::new(Scan::new(&path.to_string_lossy().to_owned()));
                 treemap_widget.replace_scan(scan.clone());
                 progress_bar_manager_clone_open2.replace_scan(scan.clone());
+                refresh_button.set_sensitive(true);
                 println!("{}", path.display());
             }
             d.destroy();
@@ -125,10 +131,6 @@ fn build_ui(application: &gtk::Application, arg_dirs: &[gtk::gio::File], _: &str
         file_chooser.show();
         }),
     );
-
-    let refresh_button = gtk::Button::new();
-    refresh_button.set_icon_name("view-refresh");
-    headerbar.pack_end(&refresh_button);
 
     let progress_bar_manager_clone_refresh = progress_bar_manager.clone();
     refresh_button.connect_clicked(
@@ -152,6 +154,7 @@ fn build_ui(application: &gtk::Application, arg_dirs: &[gtk::gio::File], _: &str
         let scan = Rc::new(Scan::new(&path.to_string_lossy().to_owned()));
         treemap_widget.replace_scan(scan.clone());
         progress_bar_manager.replace_scan(scan.clone());
+        refresh_button.set_sensitive(true);
     }
 
     window.show();
