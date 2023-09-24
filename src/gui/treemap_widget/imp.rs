@@ -16,12 +16,13 @@ use gtk::Tooltip;
 use once_cell::sync::Lazy;
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::rc::Rc;
 use std::sync::atomic::Ordering;
 
 #[derive(Debug, Default)]
 pub struct TreeMapWidget {
     child: RefCell<Option<gtk::Widget>>,
-    pub scan: RefCell<Option<Scan>>,
+    pub scan: RefCell<Option<Rc<Scan>>>,
     gui_node_map: RefCell<HashMap<NodeID, GUINode>>,
     invalidate_gui_nodes_flag: RefCell<bool>,
     last_width: RefCell<f32>,
@@ -100,7 +101,7 @@ fn query_tooltip(
 fn create_context_menu(widget: &super::TreeMapWidget, x: f64, y: f64) {
     let imp = widget.imp();
     let gui_node_map = imp.gui_node_map.borrow();
-    let (found_node, uri, parent_uri) = {
+    let (found_node, uri) = {
         if let Some(scan) = imp.scan.borrow().as_ref() {
             let tree = scan.tree_mutex.lock().unwrap();
             let root = tree.get_elem(0);
@@ -108,13 +109,8 @@ fn create_context_menu(widget: &super::TreeMapWidget, x: f64, y: f64) {
                 locate_node(&tree, root, &gui_node_map, x as f32, y as f32).map(|x| x.clone());
             let uri = found_node
                 .as_ref()
-                .and_then(|node| glib::filename_to_uri(tree.get_full_path(node.id), None).ok());
-            let parent_uri = found_node
-                .as_ref()
-                .and_then(|node| node.parent)
-                .map(|node_id| tree.get_elem(node_id))
-                .and_then(|node| glib::filename_to_uri(tree.get_full_path(node.id), None).ok());
-            (found_node, uri, parent_uri)
+                .and_then(|node| glib::filename_to_uri(&node.path, None).ok());
+            (found_node, uri)
         } else {
             return;
         }
@@ -128,25 +124,20 @@ fn create_context_menu(widget: &super::TreeMapWidget, x: f64, y: f64) {
                 Some("app.disabled"),
             );
             menu.append_item(&menu_item_name);
+
             let open_action_name = format!("app.show(\"{}\")", uri);
             let menu_item_open =
                 gtk::gio::MenuItem::new(Some("Open"), Some(open_action_name.as_str()));
             menu.append_item(&menu_item_open);
 
-            if node.is_file {
-                if let Some(parent_uri) = parent_uri {
-                    let dir_action_name = format!("app.show(\"{}\")", parent_uri);
-                    let menu_item_dir = gtk::gio::MenuItem::new(
-                        Some("Show directory"),
-                        Some(dir_action_name.as_str()),
-                    );
-                    menu.append_item(&menu_item_dir);
-                }
-            }
+            let dir_action_name = format!("app.show_directory(\"{}\")", uri);
+            let menu_item_dir =
+                gtk::gio::MenuItem::new(Some("Show directory"), Some(dir_action_name.as_str()));
+            menu.append_item(&menu_item_dir);
 
             popover_menu.set_menu_model(Some(&menu));
 
-            popover_menu.show();
+            popover_menu.set_visible(true);
         }
     }
 }
@@ -154,11 +145,11 @@ fn create_context_menu(widget: &super::TreeMapWidget, x: f64, y: f64) {
 // try making this an associated function
 pub fn refresh(widget: &super::TreeMapWidget) -> Continue {
     let imp = widget.imp();
-    imp.invalidate_gui_nodes_flag.replace(true);
-    widget.queue_draw();
     if let Some(scan) = imp.scan.borrow().as_ref() {
-        if scan.complete.load(Ordering::SeqCst) == true {
-            return Continue(false);
+        if scan.update_signal.load(Ordering::SeqCst) == true {
+            imp.invalidate_gui_nodes_flag.replace(true);
+            widget.queue_draw();
+            scan.update_signal.store(false, Ordering::SeqCst);
         }
     }
     Continue(true)

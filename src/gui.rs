@@ -13,18 +13,20 @@ pub fn initiate_ui() {
     let action_show = gtk::gio::SimpleAction::new("show", Some(glib::VariantTy::STRING));
     action_show.connect_activate(glib::clone!(@weak application => move |_, param| {
         param.map(|x| {
+            let x_string = x.to_string();
+            let path = x_string.trim_matches('\'');
             if cfg!(windows) {
                 use std::process::Command;
                 Command::new("explorer.exe")
-                    .args(&[x.to_string().trim_matches('\'')])
+                    .args(&[path])
                     .spawn()
                     .expect("failed to execute process");
             } else {
-                gtk::show_uri(None::<&gtk::Window>, x.to_string().trim_matches('\''), 0);
+                gtk::show_uri(None::<&gtk::Window>, &path, 0);
             }
-        //dbg!(gtk::gio::AppInfo::launch_default_for_uri(x.to_string().as_str(), None::<&gtk::gdk::AppLaunchContext>))
         });
     }));
+
     let action_disabled = gtk::gio::SimpleAction::new("disabled", None);
     action_disabled.set_enabled(false);
 
@@ -45,6 +47,7 @@ fn build_ui(application: &gtk::Application, arg_dirs: &[gtk::gio::File], _: &str
 
     let progress_bar = gtk::ProgressBar::new();
     gtk_box.append(&progress_bar);
+    let progress_bar_manager = progressbar::ProgressBarManager::new(progress_bar);
 
     let treemap_widget = TreeMapWidget::new();
     gtk_box.append(&treemap_widget);
@@ -72,18 +75,20 @@ fn build_ui(application: &gtk::Application, arg_dirs: &[gtk::gio::File], _: &str
         Some("Cancel"),
     );
 
+    let progress_bar_manager_clone_open = progress_bar_manager.clone();
     open_button.connect_clicked(
-        glib::clone!(@weak window, @weak treemap_widget, @weak progress_bar, @weak label => move |_| {
+        glib::clone!(@weak window, @weak treemap_widget, @weak label => move |_| {
         file_chooser.set_transient_for(Some(&window));
+        let progress_bar_manager_clone_open2 = progress_bar_manager_clone_open.clone();
         file_chooser.connect_response(move |d: &gtk::FileChooserNative, response: ResponseType| {
             if response == ResponseType::Accept {
                 label.hide();
                 treemap_widget.show();
                 let directory = d.file().expect("Couldn't get directory");
                 let path = directory.path().expect("Couldn't get path");
-                let scan = Scan::new(&path.to_string_lossy().to_owned());
+                let scan = Rc::new(Scan::new(&path.to_string_lossy().to_owned()));
                 treemap_widget.replace_scan(scan.clone());
-                progressbar::start_progressbar_timer(&progress_bar, scan);
+                progress_bar_manager_clone_open2.replace_scan(scan.clone());
                 println!("{}", path.display());
             }
             d.destroy();
@@ -97,9 +102,9 @@ fn build_ui(application: &gtk::Application, arg_dirs: &[gtk::gio::File], _: &str
         label.hide();
         treemap_widget.show();
         let path = dir.path().expect("Couldn't get path");
-        let scan = Scan::new(&path.to_string_lossy().to_owned());
+        let scan = Rc::new(Scan::new(&path.to_string_lossy().to_owned()));
         treemap_widget.replace_scan(scan.clone());
-        progressbar::start_progressbar_timer(&progress_bar, scan);
+        progress_bar_manager.replace_scan(scan.clone());
     }
 
     window.show();
