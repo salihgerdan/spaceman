@@ -27,10 +27,38 @@ pub fn initiate_ui() {
         });
     }));
 
+    // this is already implemented in gtk 4.10 but it might be better to
+    // manually implement it than to switch to a very recent version
+    let action_show_directory =
+        gtk::gio::SimpleAction::new("show_directory", Some(glib::VariantTy::STRING));
+    action_show_directory.connect_activate(glib::clone!(@weak application => move |_, param| {
+        param.map(|x| {
+            let x_string = x.to_string();
+            let path = x_string.trim_matches('\'');
+            const NAME: &str = "org.freedesktop.FileManager1";
+            const IFACE: &str = "org.freedesktop.FileManager1";
+            const PATH: &str = "/org/freedesktop/FileManager1";
+            let bus = gtk::gio::bus_get_sync(gtk::gio::BusType::Session, gtk::gio::Cancellable::NONE)
+                .expect("failed to connect to session bus");
+            bus.call_sync(
+                    Some(NAME),
+                    PATH,
+                    IFACE,
+                    "ShowItems",
+                    Some(&(vec![path], "").to_variant()),
+                    None::<&glib::VariantTy>,
+                    gtk::gio::DBusCallFlags::NONE,
+                    -1,
+                    gtk::gio::Cancellable::NONE,
+                ).expect("failed to call the session bus");
+        });
+    }));
+
     let action_disabled = gtk::gio::SimpleAction::new("disabled", None);
     action_disabled.set_enabled(false);
 
     application.add_action(&action_show);
+    application.add_action(&action_show_directory);
     application.add_action(&action_disabled);
 
     application.run();
