@@ -126,6 +126,25 @@ fn build_ui(application: &gtk::Application, arg_dirs: &[gtk::gio::File], _: &str
         }),
     );
 
+    let refresh_button = gtk::Button::new();
+    refresh_button.set_icon_name("view-refresh");
+    headerbar.pack_end(&refresh_button);
+
+    let progress_bar_manager_clone_refresh = progress_bar_manager.clone();
+    refresh_button.connect_clicked(
+        glib::clone!(@weak window, @weak treemap_widget, @weak progress_bar_manager, @weak label => move |_| {
+            let path = if let Some(old_scan) = treemap_widget.get_current_scan().borrow().as_ref() {
+                old_scan.path.clone()
+            } else {
+                return;
+            };
+            let scan = Rc::new(Scan::new(&path));
+            treemap_widget.replace_scan(scan.clone());
+            progress_bar_manager_clone_refresh.replace_scan(scan.clone());
+            println!("{}", path);
+        }),
+    );
+
     if let Some(dir) = arg_dirs.get(0) {
         label.hide();
         treemap_widget.show();
