@@ -14,15 +14,16 @@ pub fn initiate_ui() {
     action_show.connect_activate(glib::clone!(@weak application => move |_, param| {
         param.map(|x| {
             let x_string = x.to_string();
-            let path = x_string.trim_matches('\'');
+            let uri = x_string.trim_matches('\'');
             if cfg!(windows) {
+                let path = glib::filename_from_uri(uri).unwrap().0;
                 use std::process::Command;
                 Command::new("explorer.exe")
-                    .args(&[path])
+                    .args(&[path.as_os_str()])
                     .spawn()
                     .expect("failed to execute process");
             } else {
-                gtk::show_uri(None::<&gtk::Window>, &path, 0);
+                gtk::show_uri(None::<&gtk::Window>, &uri, 0);
             }
         });
     }));
@@ -34,23 +35,32 @@ pub fn initiate_ui() {
     action_show_directory.connect_activate(glib::clone!(@weak application => move |_, param| {
         param.map(|x| {
             let x_string = x.to_string();
-            let path = x_string.trim_matches('\'');
-            const NAME: &str = "org.freedesktop.FileManager1";
-            const IFACE: &str = "org.freedesktop.FileManager1";
-            const PATH: &str = "/org/freedesktop/FileManager1";
-            let bus = gtk::gio::bus_get_sync(gtk::gio::BusType::Session, gtk::gio::Cancellable::NONE)
-                .expect("failed to connect to session bus");
-            bus.call_sync(
-                    Some(NAME),
-                    PATH,
-                    IFACE,
-                    "ShowItems",
-                    Some(&(vec![path], "").to_variant()),
-                    None::<&glib::VariantTy>,
-                    gtk::gio::DBusCallFlags::NONE,
-                    -1,
-                    gtk::gio::Cancellable::NONE,
-                ).expect("failed to call the session bus");
+            let uri = x_string.trim_matches('\'');
+            if cfg!(windows) {
+                let path = glib::filename_from_uri(uri).unwrap().0;
+                use std::process::Command;
+                Command::new("explorer.exe")
+                    .args(&["/select,".to_string() + &path.to_string_lossy().to_owned()])
+                    .spawn()
+                    .expect("failed to execute process");
+            } else {
+                const NAME: &str = "org.freedesktop.FileManager1";
+                const IFACE: &str = "org.freedesktop.FileManager1";
+                const PATH: &str = "/org/freedesktop/FileManager1";
+                let bus = gtk::gio::bus_get_sync(gtk::gio::BusType::Session, gtk::gio::Cancellable::NONE)
+                    .expect("failed to connect to session bus");
+                bus.call_sync(
+                        Some(NAME),
+                        PATH,
+                        IFACE,
+                        "ShowItems",
+                        Some(&(vec![uri], "").to_variant()),
+                        None::<&glib::VariantTy>,
+                        gtk::gio::DBusCallFlags::NONE,
+                        -1,
+                        gtk::gio::Cancellable::NONE,
+                    ).expect("failed to call the session bus");
+            }
         });
     }));
 
