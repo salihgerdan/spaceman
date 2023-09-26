@@ -74,6 +74,20 @@ pub fn initiate_ui() {
     application.run();
 }
 
+fn error_box(window: &gtk::ApplicationWindow, message: String) {
+    let dialog = gtk::MessageDialog::new(
+        Some(window),
+        gtk::DialogFlags::empty(),
+        gtk::MessageType::Error,
+        gtk::ButtonsType::Close,
+        message,
+    );
+    dialog.show();
+    dialog.connect_response(move |d: &gtk::MessageDialog, _response: ResponseType| {
+        d.destroy();
+    });
+}
+
 fn build_ui(application: &gtk::Application, arg_dirs: &[gtk::gio::File], _: &str) {
     let window = gtk::ApplicationWindow::new(application);
 
@@ -156,6 +170,29 @@ fn build_ui(application: &gtk::Application, arg_dirs: &[gtk::gio::File], _: &str
             println!("{}", path);
         }),
     );
+
+    let action_trash = gtk::gio::SimpleAction::new("trash", Some(glib::VariantTy::STRING_ARRAY));
+    action_trash.connect_activate(glib::clone!(@weak window, @weak treemap_widget => move |_, param| {
+        if let Some(param) = param {
+            let params: Vec<_> = param.array_iter_str().expect("action_trash called with faulty params").collect();
+            let uri = params[0].to_string().trim_matches('\'').to_owned();
+            let node_id: usize = params[1].parse().expect("int conversion error");
+            let message = format!("{}\nMove to trash?", glib::filename_from_uri(&uri).unwrap().0.display());
+            let dialog = gtk::MessageDialog::new(Some(&window), gtk::DialogFlags::empty(), gtk::MessageType::Question, gtk::ButtonsType::OkCancel, message);
+            dialog.connect_response(move |d: &gtk::MessageDialog, response: ResponseType| {
+                if response == ResponseType::Ok {
+                    match gtk::gio::File::for_uri(&uri).trash(gtk::gio::Cancellable::NONE) {
+                        Ok(_) => {treemap_widget.deletion_notice(node_id);},
+                        Err(e) => {error_box(&window, format!("Error moving {} to trash: {}", uri, e))},
+                    }
+                }
+                d.destroy();
+            });
+            dialog.show();
+        }
+    }));
+
+    window.add_action(&action_trash);
 
     if let Some(dir) = arg_dirs.get(0) {
         label.hide();

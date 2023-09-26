@@ -6,6 +6,7 @@ use gtk::prelude::*;
 use gtk::subclass::prelude::ObjectSubclassIsExt;
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::sync::atomic::Ordering;
 
 glib::wrapper! {
     pub struct TreeMapWidget(ObjectSubclass<imp::TreeMapWidget>)
@@ -34,5 +35,13 @@ impl TreeMapWidget {
             std::time::Duration::new(0, 300 * nano_to_milli),
             glib::clone!(@weak self as widget => @default-return Continue(false), move || imp::refresh(&widget)),
         );
+    }
+    pub fn deletion_notice(&self, node_id: usize) {
+        let imp = self.imp();
+        if let Some(scan) = imp.scan.borrow().as_ref() {
+            let mut tree = scan.tree_mutex.lock().unwrap();
+            tree.invalidate_elem(node_id);
+            scan.update_signal.store(true, Ordering::SeqCst);
+        }
     }
 }

@@ -135,6 +135,11 @@ fn create_context_menu(widget: &super::TreeMapWidget, x: f64, y: f64) {
                 gtk::gio::MenuItem::new(Some("Show directory"), Some(dir_action_name.as_str()));
             menu.append_item(&menu_item_dir);
 
+            let trash_action_name = format!("win.trash([\"{}\", \"{}\"])", uri, node.id);
+            let menu_item_trash =
+                gtk::gio::MenuItem::new(Some("Trash"), Some(trash_action_name.as_str()));
+            menu.append_item(&menu_item_trash);
+
             popover_menu.set_menu_model(Some(&menu));
 
             popover_menu.set_visible(true);
