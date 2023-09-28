@@ -11,7 +11,7 @@ pub fn initiate_ui() {
     application.connect_activate(|app| build_ui(app, &[], ""));
 
     let action_show = gtk::gio::SimpleAction::new("show", Some(glib::VariantTy::STRING));
-    action_show.connect_activate(glib::clone!(@weak application => move |_, param| {
+    action_show.connect_activate(move |_, param| {
         param.map(|x| {
             let x_string = x.to_string();
             let uri = x_string.trim_matches('\'');
@@ -26,13 +26,13 @@ pub fn initiate_ui() {
                 gtk::show_uri(None::<&gtk::Window>, &uri, 0);
             }
         });
-    }));
+    });
 
     // this is already implemented in gtk 4.10 but it might be better to
     // manually implement it than to switch to a very recent version
     let action_show_directory =
         gtk::gio::SimpleAction::new("show_directory", Some(glib::VariantTy::STRING));
-    action_show_directory.connect_activate(glib::clone!(@weak application => move |_, param| {
+    action_show_directory.connect_activate(move |_, param| {
         param.map(|x| {
             let x_string = x.to_string();
             let uri = x_string.trim_matches('\'');
@@ -47,22 +47,24 @@ pub fn initiate_ui() {
                 const NAME: &str = "org.freedesktop.FileManager1";
                 const IFACE: &str = "org.freedesktop.FileManager1";
                 const PATH: &str = "/org/freedesktop/FileManager1";
-                let bus = gtk::gio::bus_get_sync(gtk::gio::BusType::Session, gtk::gio::Cancellable::NONE)
-                    .expect("failed to connect to session bus");
+                let bus =
+                    gtk::gio::bus_get_sync(gtk::gio::BusType::Session, gtk::gio::Cancellable::NONE)
+                        .expect("failed to connect to session bus");
                 bus.call_sync(
-                        Some(NAME),
-                        PATH,
-                        IFACE,
-                        "ShowItems",
-                        Some(&(vec![uri], "").to_variant()),
-                        None::<&glib::VariantTy>,
-                        gtk::gio::DBusCallFlags::NONE,
-                        -1,
-                        gtk::gio::Cancellable::NONE,
-                    ).expect("failed to call the session bus");
+                    Some(NAME),
+                    PATH,
+                    IFACE,
+                    "ShowItems",
+                    Some(&(vec![uri], "").to_variant()),
+                    None::<&glib::VariantTy>,
+                    gtk::gio::DBusCallFlags::NONE,
+                    -1,
+                    gtk::gio::Cancellable::NONE,
+                )
+                .expect("failed to call the session bus");
             }
         });
-    }));
+    });
 
     let action_disabled = gtk::gio::SimpleAction::new("disabled", None);
     action_disabled.set_enabled(false);
@@ -156,9 +158,8 @@ fn build_ui(application: &gtk::Application, arg_dirs: &[gtk::gio::File], _: &str
         }),
     );
 
-    let progress_bar_manager_clone_refresh = progress_bar_manager.clone();
     refresh_button.connect_clicked(
-        glib::clone!(@weak window, @weak treemap_widget, @weak progress_bar_manager, @weak label => move |_| {
+        glib::clone!(@weak treemap_widget, @weak progress_bar_manager => move |_| {
             let path = if let Some(old_scan) = treemap_widget.get_current_scan().borrow().as_ref() {
                 old_scan.path.clone()
             } else {
@@ -166,7 +167,7 @@ fn build_ui(application: &gtk::Application, arg_dirs: &[gtk::gio::File], _: &str
             };
             let scan = Rc::new(Scan::new(&path));
             treemap_widget.replace_scan(scan.clone());
-            progress_bar_manager_clone_refresh.replace_scan(scan.clone());
+            progress_bar_manager.replace_scan(scan.clone());
             println!("{}", path);
         }),
     );
