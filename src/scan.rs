@@ -1,15 +1,15 @@
 use crate::{
     config,
-    filetree::{Node, Tree},
+    types::{Node, Tree},
 };
 use jwalk::WalkDirGeneric;
 use std::fs;
 use std::sync::{
-    atomic::{AtomicBool, Ordering},
     Arc, Mutex,
+    atomic::{AtomicBool, Ordering},
 };
 use std::thread;
-//use std::time::Duration;
+use std::time::Instant;
 
 #[derive(Debug)]
 pub struct Scan {
@@ -113,6 +113,14 @@ fn preliminary_progress_count(directory: &str) -> usize {
     }
 }*/
 
+struct StagedEntry {
+    file_name: String,
+    path: std::path::PathBuf,
+    is_file: bool,
+    file_size: u64,
+    depth: usize,
+}
+
 fn walk_into_tree(
     tree: Arc<Mutex<Tree>>,
     update_signal: Arc<AtomicBool>,
@@ -146,52 +154,56 @@ fn walk_into_tree(
     let mut last_depth = 0;
     let mut last_node = 0;
     let mut iter = walkdir.into_iter().peekable();
-    while iter.peek().is_some() {
+    let mut staging_buffer = Vec::with_capacity(1000);
+    let mut last_update = Instant::now();
+
+    while let Some(entry) = iter.next() {
         if terminate_signal.load(Ordering::SeqCst) {
             break;
         }
-        // we split the entries into chunks of a predefined size
-        // and then lock the mutex to improve performance
-        let chunk: Vec<_> = iter.by_ref().take(config::CHUNK_SIZE).collect();
-        let mut tree = tree.lock().unwrap();
-        for entry in chunk {
-            match entry {
-                Ok(e) => {
-                    let file_size = match e.metadata() {
-                        Ok(metadata) => metadata.len(),
-                        Err(e) => {
-                            println!("Can't get filesize: {}", e);
-                            continue;
-                        }
-                    };
-                    let file_name = e.file_name.clone().into_string().unwrap_or_default();
-                    let path = e.path();
-                    let is_file = e.file_type.is_file();
-                    if e.depth > last_depth {
-                        tree.add_elem(last_node, file_name, path, is_file, file_size);
-                    } else if e.depth == last_depth {
-                        if let Some(parent) = tree.get_elem(last_node).parent {
-                            tree.add_elem(parent, file_name, path, is_file, file_size);
-                        }
-                    } else {
-                        let mut parent = last_node;
-                        for _ in e.depth..=last_depth {
-                            parent = match tree.get_elem(parent).parent {
-                                Some(p) => p,
-                                None => parent, // we never get here I guess
-                            }
-                        }
-                        tree.add_elem(parent, file_name, path, is_file, file_size);
-                    }
-                    last_depth = e.depth;
-                    last_node = tree.last_id;
-                }
-                Err(e) => {
-                    println!("Can't read: {}", e);
-                }
+
+        match entry {
+            Ok(e) => {
+                let file_size = e.metadata().map(|m| m.len()).unwrap_or(0);
+                let file_name = e.file_name.clone().into_string().unwrap_or_default();
+                let path = e.path();
+                let is_file = e.file_type.is_file();
+                staging_buffer.push(StagedEntry {
+                    file_name,
+                    path,
+                    is_file,
+                    file_size,
+                    depth: e.depth,
+                });
+            }
+            Err(e) => {
+                println!("Can't read: {}", e);
             }
         }
-        update_signal.store(true, Ordering::SeqCst);
+
+        if last_update.elapsed() >= config::UPDATE_PERIOD {
+            // acquire lock here
+            let mut tree = tree.lock().unwrap();
+            for e in staging_buffer.drain(..) {
+                if e.depth > last_depth {
+                    tree.add_elem(last_node, e.file_name, e.path, e.is_file, e.file_size);
+                } else if e.depth == last_depth {
+                    if let Some(parent) = tree.get_elem(last_node).parent {
+                        tree.add_elem(parent, e.file_name, e.path, e.is_file, e.file_size);
+                    }
+                } else {
+                    let mut parent = last_node;
+                    for _ in e.depth..=last_depth {
+                        parent = tree.get_elem(parent).parent.unwrap_or(parent);
+                    }
+                    tree.add_elem(parent, e.file_name, e.path, e.is_file, e.file_size);
+                }
+                last_depth = e.depth;
+                last_node = tree.last_id;
+            }
+            last_update = Instant::now();
+            update_signal.store(true, Ordering::SeqCst);
+        }
     }
     complete.store(true, Ordering::SeqCst);
 
