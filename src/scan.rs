@@ -127,23 +127,21 @@ fn walk_into_tree(
         WalkDirGeneric::<(Node, Option<Result<std::fs::Metadata, jwalk::Error>>)>::new(root_name)
             .follow_links(false)
             .skip_hidden(false)
-            .process_read_dir(move |_, dir_entry_results| {
-                dir_entry_results
-                    .iter_mut()
-                    .for_each(move |dir_entry_result| {
-                        if let Ok(dir_entry) = dir_entry_result {
-                            if dir_entry.file_type.is_dir() {
-                                let same_device = dir_entry
-                                    .metadata()
-                                    .as_ref()
-                                    .map(|m| is_same_device(m, &mut root_device))
-                                    .unwrap_or(true);
-                                if !same_device {
-                                    dir_entry.read_children_path = None;
-                                }
+            .process_read_dir(move |_depth, _path, _read_dir_state, children| {
+                children.iter_mut().for_each(move |dir_entry_result| {
+                    if let Ok(dir_entry) = dir_entry_result {
+                        if dir_entry.file_type.is_dir() {
+                            let same_device = dir_entry
+                                .metadata()
+                                .as_ref()
+                                .map(|m| is_same_device(m, &mut root_device))
+                                .unwrap_or(true);
+                            if !same_device {
+                                dir_entry.read_children_path = None;
                             }
                         }
-                    })
+                    }
+                })
             });
     let mut last_depth = 0;
     let mut last_node = 0;
