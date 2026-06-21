@@ -1,3 +1,5 @@
+mod context_menu;
+
 use iced::keyboard::key;
 use iced::keyboard::key::Named::{Backspace, Escape};
 use iced::mouse;
@@ -32,13 +34,13 @@ pub struct TreeMapState {}
 
 pub struct TreeMapProgram {
     pub rects_cache: canvas::Cache,
-    pub active_context_menu: Option<(NodeID, Point)>,
     pub gui_nodes: Vec<GUINode>,
     pub shown_root_id: NodeID,
     pub shown_root_id_history: Vec<NodeID>,
     pub bounds: iced::Rectangle,
     pub active_node: Option<NodeID>,
     pub active_node_is_stale: bool,
+    pub context_menu: Option<context_menu::ContextMenu>,
 }
 
 impl TreeMapProgram {
@@ -64,10 +66,6 @@ impl Program<TreeMapMessage> for TreeMapProgram {
     ) -> Option<canvas::Action<TreeMapMessage>> {
         let mut message = None;
 
-        let menu_w = 140.0;
-        let menu_h = 90.0;
-        let item_h = 30.0;
-
         // these might collide with some events? I doubt it
         if self.bounds != bounds {
             message = Some(TreeMapMessage::BoundsChanged(bounds));
@@ -76,7 +74,7 @@ impl Program<TreeMapMessage> for TreeMapProgram {
         // this happens when the rectangles are recalculated
         if self.active_node_is_stale {
             if let Some(position) = cursor.position_in(bounds) {
-                if self.active_context_menu.is_none() {
+                if self.context_menu.is_none() {
                     let hovered = self.locate_node(position);
                     message = Some(TreeMapMessage::NodeHovered(hovered));
                 }
@@ -85,15 +83,15 @@ impl Program<TreeMapMessage> for TreeMapProgram {
 
         match event {
             iced::Event::Mouse(mouse::Event::CursorMoved { .. }) => {
-                if let Some(position) = cursor.position_in(bounds) {
-                    if self.active_context_menu.is_none() {
+                if self.context_menu.is_none() {
+                    if let Some(position) = cursor.position_in(bounds) {
                         let hovered = self.locate_node(position);
                         message = Some(TreeMapMessage::NodeHovered(hovered));
                     } else {
-                        return Some(canvas::Action::request_redraw());
+                        message = Some(TreeMapMessage::NodeHovered(None));
                     }
                 } else {
-                    message = Some(TreeMapMessage::NodeHovered(None));
+                    return Some(canvas::Action::request_redraw());
                 }
             }
             iced::Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Right)) => {
@@ -104,33 +102,10 @@ impl Program<TreeMapMessage> for TreeMapProgram {
                 }
             }
             iced::Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)) => {
-                if self.active_context_menu.is_some() {
+                if let Some(menu) = &self.context_menu {
                     if let Some(position) = cursor.position_in(bounds) {
-                        let (_, menu_pos) = self.active_context_menu.unwrap();
-
-                        let menu_rect = Rectangle {
-                            x: menu_pos.x,
-                            y: menu_pos.y,
-                            width: menu_w,
-                            height: menu_h,
-                        };
-
-                        if menu_rect.contains_point(position.x, position.y) {
-                            let relative_y = position.y - menu_pos.y;
-                            let node_id = self.active_context_menu.unwrap().0;
-
-                            if relative_y < item_h {
-                                message =
-                                    Some(TreeMapMessage::ExecuteAction("Open".into(), node_id));
-                            } else if relative_y < item_h * 2.0 {
-                                message = Some(TreeMapMessage::ExecuteAction(
-                                    "Show Directory".into(),
-                                    node_id,
-                                ));
-                            } else {
-                                message =
-                                    Some(TreeMapMessage::ExecuteAction("Trash".into(), node_id));
-                            }
+                        if let Some(action) = menu.get_hovered_action(position) {
+                            message = Some(TreeMapMessage::ExecuteAction(action, menu.target_node));
                         } else {
                             message = Some(TreeMapMessage::CloseContextMenu);
                         }
@@ -192,79 +167,19 @@ impl Program<TreeMapMessage> for TreeMapProgram {
                     max_width: gnode.rect.width,
                     wrapping: text::Wrapping::None,
                     ellipsis: text::Ellipsis::End,
-                    size: Pixels(14.0),
+                    size: Pixels(config::TEXT_SIZE),
                     ..Default::default()
                 });
             }
         });
 
-        if let Some((_, position)) = self.active_context_menu {
-            let cursor_position = cursor.position_in(bounds);
-
-            let menu_w = 140.0;
-            let menu_h = 90.0;
-            let item_h = 30.0;
-
-            let hovered_idx = cursor_position.and_then(|pos| {
-                let menu_rect = Rectangle {
-                    x: position.x,
-                    y: position.y,
-                    width: menu_w,
-                    height: menu_h,
-                };
-
-                if menu_rect.contains_point(pos.x, pos.y) {
-                    let relative_y = pos.y - position.y;
-                    if relative_y < item_h {
-                        Some(0)
-                    } else if relative_y < item_h * 2.0 {
-                        Some(1)
-                    } else {
-                        Some(2)
-                    }
-                } else {
-                    None
-                }
-            });
-
+        if let Some(menu) = &self.context_menu {
             let menu_cache = canvas::Cache::default();
             let menu_geometry = menu_cache.draw(renderer, bounds.size(), |frame| {
-                let menu_size = Size::new(menu_w, menu_h);
-
-                frame.fill_rectangle(position, menu_size, Color::from_rgb(0.15, 0.15, 0.15));
-                frame.stroke_rectangle(
-                    position,
-                    menu_size,
-                    canvas::Stroke {
-                        width: 1.0,
-                        ..Default::default()
-                    },
-                );
-
-                let options = ["Open", "Show Directory", "Trash"];
-                for (i, opt) in options.iter().enumerate() {
-                    let item_y = position.y + (i as f32 * item_h);
-
-                    if hovered_idx == Some(i) {
-                        frame.fill_rectangle(
-                            Point::new(position.x + 1.0, item_y + 1.0),
-                            Size::new(menu_w - 2.0, item_h - 2.0),
-                            Color::from_rgb(0.25, 0.25, 0.25),
-                        );
-                    }
-
-                    frame.fill_text(canvas::Text {
-                        content: opt.to_string(),
-                        position: Point::new(position.x + (4.0), item_y + (6.0)),
-                        color: Color::WHITE,
-                        size: Pixels(12.0),
-                        ..Default::default()
-                    });
-                }
+                menu.draw(frame, cursor.position_in(bounds));
             });
             return vec![tree_geometry, menu_geometry];
         }
-
         vec![tree_geometry]
     }
 }
@@ -282,7 +197,6 @@ impl TreeMapApp {
                 scan: scan,
                 program: TreeMapProgram {
                     rects_cache: canvas::Cache::default(),
-                    active_context_menu: None,
                     gui_nodes: vec![],
                     shown_root_id: 0,
                     shown_root_id_history: vec![],
@@ -294,6 +208,7 @@ impl TreeMapApp {
                     },
                     active_node: None,
                     active_node_is_stale: false,
+                    context_menu: None,
                 },
             },
             Task::none(),
@@ -344,10 +259,10 @@ impl TreeMapApp {
                 self.program.rects_cache.clear();
             }
             TreeMapMessage::NodeRightClicked { node_id, position } => {
-                self.program.active_context_menu = Some((node_id, position));
+                self.program.context_menu = Some(context_menu::ContextMenu::new(node_id, position));
             }
             TreeMapMessage::CloseContextMenu => {
-                self.program.active_context_menu = None;
+                self.program.context_menu = None;
             }
             TreeMapMessage::ExecuteAction(action, node_id) => {
                 if let Ok(tree) = self.scan.tree_mutex.lock() {
@@ -357,7 +272,7 @@ impl TreeMapApp {
                         action, node.name
                     );
                 }
-                self.program.active_context_menu = None;
+                self.program.context_menu = None;
             }
             TreeMapMessage::FocusOnActiveNode => {
                 if let Some(id) = self.program.active_node {
