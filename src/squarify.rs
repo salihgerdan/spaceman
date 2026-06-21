@@ -1,11 +1,8 @@
 use crate::{
+    config::{MAX_VISIBLE_FS_DEPTH, MIN_BOX_SIZE},
     types::{GUINode, Node, NodeID, Rectangle, Tree},
     utils::bytes_display,
 };
-
-const MAX_FS_DEPTH: usize = 16;
-const MIN_BOX_SIZE: f32 = 20.0;
-const PAD: f32 = 1.0;
 
 // wrapper function
 pub fn compute_gui_nodes(
@@ -25,7 +22,7 @@ fn compute_gui_nodes_imp(
     dir_level: usize,
     text_offset: f32,
 ) -> Vec<GUINode> {
-    if dir_level > MAX_FS_DEPTH
+    if dir_level > MAX_VISIBLE_FS_DEPTH
         || bound.width < MIN_BOX_SIZE
         || bound.height < MIN_BOX_SIZE
         || nodes.is_empty()
@@ -159,24 +156,6 @@ fn squarify(
         };
         (bound_a, bound_b)
     };
-
-    // add padding to single elements
-    if vec_a.len() == 1 {
-        bound_a = Rectangle {
-            x: bound_a.x + PAD,
-            y: bound_a.y + PAD,
-            width: bound_a.width - 2.0 * PAD,
-            height: bound_a.height - 2.0 * PAD,
-        };
-    }
-    if vec_b.len() == 1 {
-        bound_b = Rectangle {
-            x: bound_b.x + PAD,
-            y: bound_b.y + PAD,
-            width: bound_b.width - 2.0 * PAD,
-            height: bound_b.height - 2.0 * PAD,
-        };
-    }
 
     (vec_a, bound_a, vec_b, bound_b)
 }

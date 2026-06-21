@@ -175,8 +175,13 @@ impl Program<TreeMapMessage> for TreeMapProgram {
                     Color::from_rgba(color_rgba.r, color_rgba.g, color_rgba.b, color_rgba.a)
                 };
 
-                let rect_pos = Point::new(gnode.rect.x, gnode.rect.y);
-                let rect_size = Size::new(gnode.rect.width, gnode.rect.height);
+                // borders are invisible, they are just padding
+                let rect_pos =
+                    Point::new(gnode.rect.x + config::BORDER, gnode.rect.y + config::BORDER);
+                let rect_size = Size::new(
+                    gnode.rect.width - config::BORDER * 2.0,
+                    gnode.rect.height - config::BORDER * 2.0,
+                );
 
                 frame.fill_rectangle(rect_pos, rect_size, color);
 
