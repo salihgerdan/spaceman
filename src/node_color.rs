@@ -1,4 +1,4 @@
-use gtk::gdk::RGBA;
+use crate::types::RGBA;
 use once_cell::sync::Lazy;
 use std::f32::consts::PI;
 
@@ -82,7 +82,12 @@ static DIR: Lazy<[RGBA; 5]> = Lazy::new(|| {
     (0..5)
         .map(|depth| {
             let color = darken(0.87_f32.powi(depth as i32), (DIR_R, DIR_G, DIR_B));
-            RGBA::new(color.0, color.1, color.2, 1.0)
+            RGBA {
+                r: color.0,
+                g: color.1,
+                b: color.2,
+                a: 1.0,
+            }
         })
         .collect::<Vec<RGBA>>()
         .try_into()
@@ -93,7 +98,12 @@ static FILE: Lazy<[RGBA; 5]> = Lazy::new(|| {
     (0..5)
         .map(|depth| {
             let color = darken(0.87_f32.powi(depth as i32), (FILE_R, FILE_G, FILE_B));
-            RGBA::new(color.0, color.1, color.2, 1.0)
+            RGBA {
+                r: color.0,
+                g: color.1,
+                b: color.2,
+                a: 1.0,
+            }
         })
         .collect::<Vec<RGBA>>()
         .try_into()

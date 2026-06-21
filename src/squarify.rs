@@ -1,43 +1,33 @@
-use gtk::graphene::Rect;
-
-use crate::filetree::{Node, NodeID, Tree};
-use std::collections::HashMap;
+use crate::{
+    types::{GUINode, Node, NodeID, Rectangle, Tree},
+    utils::bytes_display,
+};
 
 const MAX_FS_DEPTH: usize = 16;
 const MIN_BOX_SIZE: f32 = 20.0;
 const PAD: f32 = 1.0;
 
-#[derive(Debug)]
-pub struct GUINode {
-    pub rect: Rect,
-    pub node_id: NodeID,
-}
-
 // wrapper function
 pub fn compute_gui_nodes(
     tree: &Tree,
-    root: &Node,
-    bound: Rect,
+    root_id: NodeID,
+    bound: Rectangle,
     text_offset: f32,
-) -> HashMap<NodeID, GUINode> {
-    let vec_gui_nodes = compute_gui_nodes_imp(tree, vec![root], bound, 0, text_offset);
-    let mut hmap: HashMap<NodeID, GUINode> = HashMap::with_capacity(vec_gui_nodes.len());
-    for gui_node in vec_gui_nodes {
-        hmap.insert(gui_node.node_id, gui_node);
-    }
-    hmap
+) -> Vec<GUINode> {
+    let root = &tree.elems[root_id];
+    compute_gui_nodes_imp(tree, vec![root], bound, 0, text_offset)
 }
 
 fn compute_gui_nodes_imp(
     tree: &Tree,
     nodes: Vec<&Node>,
-    mut bound: Rect,
+    mut bound: Rectangle,
     dir_level: usize,
     text_offset: f32,
 ) -> Vec<GUINode> {
     if dir_level > MAX_FS_DEPTH
-        || bound.width() < MIN_BOX_SIZE
-        || bound.height() < MIN_BOX_SIZE
+        || bound.width < MIN_BOX_SIZE
+        || bound.height < MIN_BOX_SIZE
         || nodes.is_empty()
     {
         return vec![];
@@ -54,20 +44,23 @@ fn compute_gui_nodes_imp(
         let node = nodes.first().unwrap();
 
         let gui_node = GUINode {
-            rect: bound,
+            rect: bound.clone(),
             node_id: node.id,
+            color: node.color(),
+            label: format!("{} ({})", node.name, bytes_display(node.size)),
+            is_file: node.is_file,
         };
 
         gui_nodes.push(gui_node);
 
         if !node.children.is_empty() {
             // add padding for directory
-            bound = Rect::new(
-                bound.x() + 3.0,
-                bound.y() + text_offset,
-                bound.width() - 6.0,
-                bound.height() - text_offset - 3.0,
-            );
+            bound = Rectangle {
+                x: bound.x + 3.0,
+                y: bound.y + text_offset,
+                width: bound.width - 6.0,
+                height: bound.height - text_offset - 3.0,
+            };
         }
     };
 
@@ -109,9 +102,9 @@ fn compute_gui_nodes_imp(
 
 fn squarify(
     mut nodes: Vec<&Node>,
-    bound: Rect,
+    bound: Rectangle,
     total_size: u64,
-) -> (Vec<&Node>, Rect, Vec<&Node>, Rect) {
+) -> (Vec<&Node>, Rectangle, Vec<&Node>, Rectangle) {
     // sort by size and split into halves
 
     nodes.sort_by_key(|x| x.size);
@@ -131,48 +124,58 @@ fn squarify(
     let vec_b = vec_a.split_off(split);
 
     // orientation
-    let (mut bound_a, mut bound_b) = if bound.width() > bound.height() {
+    let (mut bound_a, mut bound_b) = if bound.width > bound.height {
         // horizontal
-        let split_width = bound.width() * (size_a as f32 / total_size as f32);
+        let split_width = bound.width * (size_a as f32 / total_size as f32);
 
-        let bound_a = Rect::new(bound.x(), bound.y(), split_width, bound.height());
-        let bound_b = Rect::new(
-            bound.x() + split_width,
-            bound.y(),
-            bound.width() - split_width,
-            bound.height(),
-        );
+        let bound_a = Rectangle {
+            x: bound.x,
+            y: bound.y,
+            width: split_width,
+            height: bound.height,
+        };
+        let bound_b = Rectangle {
+            x: bound.x + split_width,
+            y: bound.y,
+            width: bound.width - split_width,
+            height: bound.height,
+        };
         (bound_a, bound_b)
     } else {
         // vertical
-        let split_height = bound.height() * (size_a as f32 / total_size as f32);
+        let split_height = bound.height * (size_a as f32 / total_size as f32);
 
-        let bound_a = Rect::new(bound.x(), bound.y(), bound.width(), split_height);
-        let bound_b = Rect::new(
-            bound.x(),
-            bound.y() + split_height,
-            bound.width(),
-            bound.height() - split_height,
-        );
+        let bound_a = Rectangle {
+            x: bound.x,
+            y: bound.y,
+            width: bound.width,
+            height: split_height,
+        };
+        let bound_b = Rectangle {
+            x: bound.x,
+            y: bound.y + split_height,
+            width: bound.width,
+            height: bound.height - split_height,
+        };
         (bound_a, bound_b)
     };
 
     // add padding to single elements
     if vec_a.len() == 1 {
-        bound_a = Rect::new(
-            bound_a.x() + PAD,
-            bound_a.y() + PAD,
-            bound_a.width() - 2.0 * PAD,
-            bound_a.height() - 2.0 * PAD,
-        );
+        bound_a = Rectangle {
+            x: bound_a.x + PAD,
+            y: bound_a.y + PAD,
+            width: bound_a.width - 2.0 * PAD,
+            height: bound_a.height - 2.0 * PAD,
+        };
     }
     if vec_b.len() == 1 {
-        bound_b = Rect::new(
-            bound_b.x() + PAD,
-            bound_b.y() + PAD,
-            bound_b.width() - 2.0 * PAD,
-            bound_b.height() - 2.0 * PAD,
-        );
+        bound_b = Rectangle {
+            x: bound_b.x + PAD,
+            y: bound_b.y + PAD,
+            width: bound_b.width - 2.0 * PAD,
+            height: bound_b.height - 2.0 * PAD,
+        };
     }
 
     (vec_a, bound_a, vec_b, bound_b)

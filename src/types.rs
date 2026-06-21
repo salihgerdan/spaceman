@@ -1,4 +1,27 @@
+use crate::node_color;
 use std::path::PathBuf;
+
+#[derive(Debug, Clone, Copy)]
+pub struct Rectangle {
+    pub x: f32,
+    pub y: f32,
+    pub width: f32,
+    pub height: f32,
+}
+
+impl Rectangle {
+    pub fn contains_point(&self, px: f32, py: f32) -> bool {
+        px >= self.x && px <= self.x + self.width && py >= self.y && py <= self.y + self.height
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct RGBA {
+    pub r: f32,
+    pub g: f32,
+    pub b: f32,
+    pub a: f32,
+}
 
 pub type NodeID = usize;
 
@@ -12,6 +35,15 @@ pub struct Node {
     pub is_file: bool,
     pub parent: Option<NodeID>,
     pub children: Vec<NodeID>,
+}
+
+impl Node {
+    pub fn color(&self) -> RGBA {
+        match self.is_file {
+            false => node_color::depth_dir_color(self.depth as usize),
+            true => node_color::depth_file_color(self.depth as usize),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -97,4 +129,13 @@ impl Default for Tree {
     fn default() -> Self {
         Tree::new("")
     }
+}
+
+#[derive(Debug, Clone)]
+pub struct GUINode {
+    pub rect: Rectangle,
+    pub node_id: NodeID,
+    pub color: RGBA,
+    pub label: String,
+    pub is_file: bool,
 }
