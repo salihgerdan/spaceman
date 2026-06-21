@@ -95,9 +95,13 @@ impl Program<TreeMapMessage> for TreeMapProgram {
                 }
             }
             iced::Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Right)) => {
-                if let Some(position) = cursor.position_in(bounds) {
-                    if let Some(node_id) = self.locate_node(position) {
-                        message = Some(TreeMapMessage::NodeRightClicked { node_id, position });
+                if self.context_menu.is_some() {
+                    message = Some(TreeMapMessage::CloseContextMenu);
+                } else {
+                    if let Some(position) = cursor.position_in(bounds) {
+                        if let Some(node_id) = self.locate_node(position) {
+                            message = Some(TreeMapMessage::NodeRightClicked { node_id, position });
+                        }
                     }
                 }
             }
@@ -263,6 +267,7 @@ impl TreeMapApp {
             }
             TreeMapMessage::CloseContextMenu => {
                 self.program.context_menu = None;
+                self.program.active_node_is_stale = true;
             }
             TreeMapMessage::ExecuteAction(action, node_id) => {
                 if let Ok(tree) = self.scan.tree_mutex.lock() {
