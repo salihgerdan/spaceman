@@ -4,8 +4,8 @@ use iced::keyboard::key;
 use iced::keyboard::key::Named::{Backspace, Escape};
 use iced::mouse;
 use iced::widget::canvas::{self, Canvas, Geometry, Program};
-use iced::widget::{column, container, text};
-use iced::{Color, Element, Length, Pixels, Point, Size, Task, Theme};
+use iced::widget::{column, container, text, tooltip};
+use iced::{Background, Border, Color, Element, Length, Pixels, Point, Size, Task, Theme};
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
 
@@ -34,6 +34,7 @@ pub struct TreeMapState {}
 
 pub struct TreeMapProgram {
     pub rects_cache: canvas::Cache,
+    pub menu_cache: canvas::Cache,
     pub gui_nodes: Vec<GUINode>,
     pub shown_root_id: NodeID,
     pub shown_root_id_history: Vec<NodeID>,
@@ -91,6 +92,7 @@ impl Program<TreeMapMessage> for TreeMapProgram {
                         message = Some(TreeMapMessage::NodeHovered(None));
                     }
                 } else {
+                    self.menu_cache.clear();
                     return Some(canvas::Action::request_redraw());
                 }
             }
@@ -178,8 +180,7 @@ impl Program<TreeMapMessage> for TreeMapProgram {
         });
 
         if let Some(menu) = &self.context_menu {
-            let menu_cache = canvas::Cache::default();
-            let menu_geometry = menu_cache.draw(renderer, bounds.size(), |frame| {
+            let menu_geometry = self.menu_cache.draw(renderer, bounds.size(), |frame| {
                 menu.draw(frame, cursor.position_in(bounds));
             });
             return vec![tree_geometry, menu_geometry];
@@ -201,6 +202,7 @@ impl TreeMapApp {
                 scan: scan,
                 program: TreeMapProgram {
                     rects_cache: canvas::Cache::default(),
+                    menu_cache: canvas::Cache::default(),
                     gui_nodes: vec![],
                     shown_root_id: 0,
                     shown_root_id_history: vec![],
@@ -267,6 +269,7 @@ impl TreeMapApp {
             }
             TreeMapMessage::CloseContextMenu => {
                 self.program.context_menu = None;
+                self.program.menu_cache.clear();
                 self.program.active_node_is_stale = true;
             }
             TreeMapMessage::ExecuteAction(action, node_id) => {
@@ -314,33 +317,48 @@ impl TreeMapApp {
     }
 
     fn view(&self) -> Element<'_, TreeMapMessage> {
+        //let header = row![button("Open")];
+
         let canvas_widget = Canvas::new(&self.program)
             .width(Length::Fill)
             .height(Length::Fill);
 
-        let mut footer_text = String::from("");
+        let mut tooltip_text = String::from("");
 
         // TODO: inefficient, could be better?
         if let Some(id) = self.program.active_node {
             if let Some(gnode) = self.program.gui_nodes.iter().find(|x| id == x.node_id) {
-                footer_text = gnode.label.clone();
+                tooltip_text = gnode.label.clone();
             }
         }
 
-        let content = column![
-            container(canvas_widget)
+        if self.program.context_menu.is_none() {
+            column![
+                //header,
+                container(tooltip(
+                    canvas_widget,
+                    container(text(tooltip_text.clone()))
+                        .style(|_theme| {
+                            container::Style::default()
+                                .background(Background::Color(Color::from_rgba(0.0, 0.0, 0.0, 0.8)))
+                                .border(Border::default().rounded(3.0))
+                        })
+                        .padding(4.0),
+                    tooltip::Position::FollowCursor,
+                ))
                 .width(Length::Fill)
-                .height(Length::Fill),
-            text(footer_text)
-                .size(Pixels(13.0))
-                .color(Color::from_rgb(0.7, 0.7, 0.7))
-        ]
-        .padding(12);
-
-        container(content)
-            .width(Length::Fill)
-            .height(Length::Fill)
+                .height(Length::Fill)
+            ]
             .into()
+        } else {
+            column![
+                //header,
+                container(canvas_widget)
+                    .width(Length::Fill)
+                    .height(Length::Fill)
+            ]
+            .into()
+        }
     }
 
     fn subscription(&self) -> iced::Subscription<TreeMapMessage> {
