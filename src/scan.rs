@@ -205,6 +205,7 @@ fn walk_into_tree(
             update_signal.store(true, Ordering::SeqCst);
         }
     }
+    update_signal.store(true, Ordering::SeqCst);
     complete.store(true, Ordering::SeqCst);
 
     /*while terminate_signal.load(Ordering::SeqCst) == false {

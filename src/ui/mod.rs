@@ -4,7 +4,7 @@ use iced::keyboard::key;
 use iced::keyboard::key::Named::{Backspace, Escape};
 use iced::mouse;
 use iced::widget::canvas::{self, Canvas, Geometry, Program};
-use iced::widget::{button, center, center_x, column, container, row, text, tooltip};
+use iced::widget::{button, center, center_x, column, container, progress_bar, row, text, tooltip};
 use iced::{Background, Border, Color, Element, Length, Pixels, Point, Size, Task, Theme};
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -191,13 +191,15 @@ impl Program<TreeMapMessage> for TreeMapProgram {
 struct TreeMapApp {
     scan: Option<Arc<Scan>>,
     program: TreeMapProgram,
+    scan_progress: f32,
 }
 
 impl TreeMapApp {
     fn new() -> (Self, Task<TreeMapMessage>) {
         (
             Self {
-                scan: None, // No initial scan
+                scan: None,
+                scan_progress: 0.0,
                 program: TreeMapProgram {
                     rects_cache: canvas::Cache::default(),
                     menu_cache: canvas::Cache::default(),
@@ -260,6 +262,7 @@ impl TreeMapApp {
                 if let Some(scan) = &self.scan {
                     if scan.update_signal.load(Ordering::SeqCst) {
                         scan.update_signal.store(false, Ordering::SeqCst);
+                        self.scan_progress = scan.progress() as f32;
                         return Task::done(TreeMapMessage::RecalculateRects);
                     }
                 }
@@ -361,36 +364,39 @@ impl TreeMapApp {
             style
         };
 
-        let header = container(
-            row![
-                button("Scan")
-                    .style(button_style)
-                    .on_press(TreeMapMessage::SelectFolder),
-                center_x(
-                    text(config::APP_TITLE)
-                        .size(16.0)
-                        .font(iced::Font::DEFAULT.weight(iced::font::Weight::Bold))
-                        .align_y(iced::Alignment::Center)
-                ),
-                button("Refresh")
-                    .style(button_style)
-                    .on_press(TreeMapMessage::ScanRestarted),
-            ]
-            .spacing(10)
-            .align_y(iced::Alignment::Center),
-        )
-        .width(Length::Fill)
-        .padding(3)
-        .style(|theme: &Theme| {
-            let palette = theme.palette();
-            container::Style::default()
-                .background(Background::Color(palette.background.weakest.color))
-                .border(
-                    Border::default()
-                        .color(palette.background.strong.color)
-                        .width(1.0),
-                )
-        });
+        let header = column![
+            container(
+                row![
+                    button("Scan")
+                        .style(button_style)
+                        .on_press(TreeMapMessage::SelectFolder),
+                    center_x(
+                        text(config::APP_TITLE)
+                            .size(16.0)
+                            .font(iced::Font::DEFAULT.weight(iced::font::Weight::Bold))
+                            .align_y(iced::Alignment::Center)
+                    ),
+                    button("Refresh")
+                        .style(button_style)
+                        .on_press(TreeMapMessage::ScanRestarted),
+                ]
+                .spacing(10)
+                .align_y(iced::Alignment::Center)
+            )
+            .width(Length::Fill)
+            .padding(3)
+            .style(|theme: &Theme| {
+                let palette = theme.palette();
+                container::Style::default()
+                    .background(Background::Color(palette.background.weakest.color))
+                    .border(
+                        Border::default()
+                            .color(palette.background.strong.color)
+                            .width(1.0),
+                    )
+            }),
+            progress_bar(0.0..=1.0, self.scan_progress).girth(3.0)
+        ];
 
         let content: Element<'_, TreeMapMessage> = if self.scan.is_none() {
             container(
