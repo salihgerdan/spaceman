@@ -121,7 +121,7 @@ fn squarify(
     let vec_b = vec_a.split_off(split);
 
     // orientation
-    let (mut bound_a, mut bound_b) = if bound.width > bound.height {
+    let (bound_a, bound_b) = if bound.width > bound.height {
         // horizontal
         let split_width = bound.width * (size_a as f32 / total_size as f32);
 

@@ -112,7 +112,7 @@ impl Tree {
     pub fn get_elem(&self, id: NodeID) -> &Node {
         &self.elems[id]
     }
-    fn truncate_tree(&mut self) {
+    /*fn truncate_tree(&mut self) {
         self.elems.truncate(0);
         self.last_id = 0;
     }
@@ -122,7 +122,7 @@ impl Tree {
             name: root_name.into(),
             ..Default::default()
         });
-    }
+    }*/
 }
 
 impl Default for Tree {

@@ -14,5 +14,5 @@ trash = "5.2.6"
 
 [profile.release]
 codegen-units = 1
-#lto = true
-#strip = true
+lto = true
+strip = true
