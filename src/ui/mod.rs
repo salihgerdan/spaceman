@@ -4,8 +4,9 @@ use iced::keyboard::key;
 use iced::keyboard::key::Named::{Backspace, Escape};
 use iced::mouse;
 use iced::widget::canvas::{self, Canvas, Geometry, Program};
-use iced::widget::{column, container, text, tooltip};
+use iced::widget::{button, center, center_x, column, container, row, text, tooltip};
 use iced::{Background, Border, Color, Element, Length, Pixels, Point, Size, Task, Theme};
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
 
@@ -16,6 +17,8 @@ use crate::types::{GUINode, NodeID, Rectangle};
 
 #[derive(Debug, Clone)]
 pub enum TreeMapMessage {
+    SelectFolder,
+    FolderSelected(Option<PathBuf>),
     CheckForScanUpdates,
     RecalculateRects,
     BoundsChanged(iced::Rectangle),
@@ -26,6 +29,7 @@ pub enum TreeMapMessage {
     FocusOnActiveNode,
     FocusOnRootNode,
     FocusOnPreviousNode,
+    ScanRestarted,
 }
 
 // storing nothing for now
@@ -46,8 +50,6 @@ pub struct TreeMapProgram {
 
 impl TreeMapProgram {
     fn locate_node(&self, point: Point) -> Option<NodeID> {
-        // this vector is already sorted parent -> child, so
-        // the rightmost matching rectangle is necessarily the top one
         self.gui_nodes
             .iter()
             .rfind(|gnode| gnode.rect.contains_point(point.x, point.y))
@@ -67,12 +69,10 @@ impl Program<TreeMapMessage> for TreeMapProgram {
     ) -> Option<canvas::Action<TreeMapMessage>> {
         let mut message = None;
 
-        // these might collide with some events? I doubt it
         if self.bounds != bounds {
             message = Some(TreeMapMessage::BoundsChanged(bounds));
         }
 
-        // this happens when the rectangles are recalculated
         if self.active_node_is_stale {
             if let Some(position) = cursor.position_in(bounds) {
                 if self.context_menu.is_none() {
@@ -131,7 +131,6 @@ impl Program<TreeMapMessage> for TreeMapProgram {
                 }
                 _ => {}
             },
-
             _ => {}
         }
 
@@ -151,12 +150,12 @@ impl Program<TreeMapMessage> for TreeMapProgram {
                 let color_rgba = gnode.color;
 
                 let color = if self.active_node.is_some_and(|x| x == gnode.node_id) {
-                    Color::from_rgba(0.9, 0.9, 0.9, 0.7)
+                    Color::from_rgba(color_rgba.r, color_rgba.g, color_rgba.b, color_rgba.a)
+                        .mix(Color::WHITE, 0.1)
                 } else {
                     Color::from_rgba(color_rgba.r, color_rgba.g, color_rgba.b, color_rgba.a)
                 };
 
-                // borders are invisible, they are just padding
                 let rect_pos =
                     Point::new(gnode.rect.x + config::BORDER, gnode.rect.y + config::BORDER);
                 let rect_size = Size::new(
@@ -190,16 +189,15 @@ impl Program<TreeMapMessage> for TreeMapProgram {
 }
 
 struct TreeMapApp {
-    scan: Arc<Scan>,
+    scan: Option<Arc<Scan>>,
     program: TreeMapProgram,
 }
 
 impl TreeMapApp {
     fn new() -> (Self, Task<TreeMapMessage>) {
-        let scan = Arc::new(Scan::new("/"));
         (
             Self {
-                scan: scan,
+                scan: None, // No initial scan
                 program: TreeMapProgram {
                     rects_cache: canvas::Cache::default(),
                     menu_cache: canvas::Cache::default(),
@@ -227,10 +225,43 @@ impl TreeMapApp {
 
     fn update(&mut self, message: TreeMapMessage) -> Task<TreeMapMessage> {
         match message {
-            TreeMapMessage::CheckForScanUpdates => {
-                if self.scan.update_signal.load(Ordering::SeqCst) {
-                    self.scan.update_signal.store(false, Ordering::SeqCst);
+            TreeMapMessage::SelectFolder => {
+                return Task::perform(
+                    async {
+                        rfd::AsyncFileDialog::new()
+                            .pick_folder()
+                            .await
+                            .map(|handle| handle.path().to_path_buf())
+                    },
+                    TreeMapMessage::FolderSelected,
+                );
+            }
+            TreeMapMessage::FolderSelected(path) => {
+                if let Some(path) = path {
+                    let path_str = path.to_string_lossy().into_owned();
+                    self.scan = Some(Arc::new(Scan::new(&path_str)));
+
+                    self.program.shown_root_id = 0;
+                    self.program.shown_root_id_history.clear();
                     return Task::done(TreeMapMessage::RecalculateRects);
+                }
+            }
+            TreeMapMessage::ScanRestarted => {
+                if let Some(scan) = &self.scan {
+                    let path = scan.path.clone();
+                    self.scan = Some(Arc::new(Scan::new(&path)));
+
+                    self.program.shown_root_id = 0;
+                    self.program.shown_root_id_history.clear();
+                    return Task::done(TreeMapMessage::RecalculateRects);
+                }
+            }
+            TreeMapMessage::CheckForScanUpdates => {
+                if let Some(scan) = &self.scan {
+                    if scan.update_signal.load(Ordering::SeqCst) {
+                        scan.update_signal.store(false, Ordering::SeqCst);
+                        return Task::done(TreeMapMessage::RecalculateRects);
+                    }
                 }
             }
             TreeMapMessage::RecalculateRects => {
@@ -242,22 +273,24 @@ impl TreeMapApp {
                 };
                 self.program.gui_nodes.clear();
 
-                if let Ok(tree) = self.scan.tree_mutex.lock() {
-                    self.program.gui_nodes.append(&mut compute_gui_nodes(
-                        &tree,
-                        self.program.shown_root_id,
-                        base_rect,
-                        20.0,
-                    ));
+                if let Some(scan) = &self.scan {
+                    if let Ok(tree) = scan.tree_mutex.lock() {
+                        self.program.gui_nodes.append(&mut compute_gui_nodes(
+                            &tree,
+                            self.program.shown_root_id,
+                            base_rect,
+                            20.0,
+                        ));
+                    }
                 }
-                // Changing the rectangles makes the canvas not know what it's pointing at
                 self.program.active_node_is_stale = true;
-                // Clear cache to force a redraw
                 self.program.rects_cache.clear();
             }
             TreeMapMessage::BoundsChanged(bounds) => {
                 self.program.bounds = bounds;
-                return Task::done(TreeMapMessage::RecalculateRects);
+                if self.scan.is_some() {
+                    return Task::done(TreeMapMessage::RecalculateRects);
+                }
             }
             TreeMapMessage::NodeHovered(node_id) => {
                 self.program.active_node = node_id;
@@ -273,20 +306,20 @@ impl TreeMapApp {
                 self.program.active_node_is_stale = true;
             }
             TreeMapMessage::ExecuteAction(action, node_id) => {
-                if let Ok(tree) = self.scan.tree_mutex.lock() {
-                    let node = tree.get_elem(node_id);
-                    println!(
-                        "Executing standard action: [{}] on target node: {}",
-                        action, node.name
-                    );
+                if let Some(scan) = &self.scan {
+                    if let Ok(tree) = scan.tree_mutex.lock() {
+                        let node = tree.get_elem(node_id);
+                        println!(
+                            "Executing action: [{}] on target node: {}",
+                            action, node.name
+                        );
+                    }
                 }
                 self.program.context_menu = None;
             }
             TreeMapMessage::FocusOnActiveNode => {
                 if let Some(id) = self.program.active_node {
-                    // TODO: inefficient, could be better
                     if let Some(gnode) = self.program.gui_nodes.iter().find(|x| id == x.node_id) {
-                        // only focus on directories
                         if !gnode.is_file {
                             self.program
                                 .shown_root_id_history
@@ -317,56 +350,111 @@ impl TreeMapApp {
     }
 
     fn view(&self) -> Element<'_, TreeMapMessage> {
-        //let header = row![button("Open")];
+        let button_style = |theme: &Theme, status: button::Status| {
+            let palette = theme.palette();
+            let mut style = button::subtle(theme, status);
+            style.border = style
+                .border
+                .width(1)
+                .color(palette.background.strongest.color)
+                .rounded(5.0);
+            style
+        };
 
-        let canvas_widget = Canvas::new(&self.program)
-            .width(Length::Fill)
-            .height(Length::Fill);
+        let header = container(
+            row![
+                button("Scan")
+                    .style(button_style)
+                    .on_press(TreeMapMessage::SelectFolder),
+                center_x(
+                    text(config::APP_TITLE)
+                        .size(16.0)
+                        .font(iced::Font::DEFAULT.weight(iced::font::Weight::Bold))
+                        .align_y(iced::Alignment::Center)
+                ),
+                button("Refresh")
+                    .style(button_style)
+                    .on_press(TreeMapMessage::ScanRestarted),
+            ]
+            .spacing(10)
+            .align_y(iced::Alignment::Center),
+        )
+        .width(Length::Fill)
+        .padding(3)
+        .style(|theme: &Theme| {
+            let palette = theme.palette();
+            container::Style::default()
+                .background(Background::Color(palette.background.weakest.color))
+                .border(
+                    Border::default()
+                        .color(palette.background.strong.color)
+                        .width(1.0),
+                )
+        });
 
-        let mut tooltip_text = String::from("");
+        let content: Element<'_, TreeMapMessage> = if self.scan.is_none() {
+            container(
+                center(text("Click the top left button to start a scan").size(20))
+                    .width(Length::Fill)
+                    .height(Length::Fill),
+            )
+            .style(|_theme: &Theme| {
+                container::Style::default()
+                    .background(Background::Color(Color::from_rgb(0.95, 0.95, 0.95)))
+            })
+            .into()
+        } else {
+            let canvas_widget = Canvas::new(&self.program)
+                .width(Length::Fill)
+                .height(Length::Fill);
 
-        // TODO: inefficient, could be better?
-        if let Some(id) = self.program.active_node {
-            if let Some(gnode) = self.program.gui_nodes.iter().find(|x| id == x.node_id) {
-                tooltip_text = gnode.label.clone();
+            let mut tooltip_text = String::from("");
+            if let Some(id) = self.program.active_node {
+                if let Some(gnode) = self.program.gui_nodes.iter().find(|x| id == x.node_id) {
+                    tooltip_text = gnode.label.clone();
+                }
             }
-        }
 
-        if self.program.context_menu.is_none() {
-            column![
-                //header,
+            if self.program.context_menu.is_none() {
                 container(tooltip(
                     canvas_widget,
-                    container(text(tooltip_text.clone()))
-                        .style(|_theme| {
-                            container::Style::default()
-                                .background(Background::Color(Color::from_rgba(0.0, 0.0, 0.0, 0.7)))
-                                .border(Border::default().rounded(4.0))
-                        })
-                        .padding(4.0),
+                    container(text(tooltip_text).style(|_| text::Style {
+                        color: Some(Color::from_rgba(1.0, 1.0, 1.0, 1.0)),
+                    }))
+                    .style(|_theme| {
+                        container::Style::default()
+                            .background(Background::Color(Color::from_rgba(0.0, 0.0, 0.0, 0.7)))
+                            .border(Border::default().rounded(5.0))
+                    })
+                    .padding(5.0),
                     tooltip::Position::FollowCursor,
                 ))
                 .width(Length::Fill)
                 .height(Length::Fill)
                 .padding(2.0)
-            ]
-            .into()
-        } else {
-            column![
-                //header,
+                .into()
+            } else {
                 container(canvas_widget)
                     .width(Length::Fill)
                     .height(Length::Fill)
                     .padding(2.0)
-            ]
-            .into()
-        }
+                    .into()
+            }
+        };
+
+        column![header, content].into()
+    }
+
+    fn theme(&self) -> Theme {
+        Theme::TokyoNightLight
     }
 
     fn subscription(&self) -> iced::Subscription<TreeMapMessage> {
-        let recalculate_rects =
-            iced::time::every(config::UPDATE_PERIOD).map(|_| TreeMapMessage::CheckForScanUpdates);
-        iced::Subscription::batch(vec![recalculate_rects])
+        if self.scan.is_some() {
+            iced::time::every(config::UPDATE_PERIOD).map(|_| TreeMapMessage::CheckForScanUpdates)
+        } else {
+            iced::Subscription::none()
+        }
     }
 }
 
@@ -374,5 +462,6 @@ pub fn init() -> iced::Result {
     iced::application(TreeMapApp::new, TreeMapApp::update, TreeMapApp::view)
         .subscription(TreeMapApp::subscription)
         .title(TreeMapApp::title)
+        .theme(TreeMapApp::theme)
         .run()
 }
