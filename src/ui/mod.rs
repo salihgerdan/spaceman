@@ -44,8 +44,6 @@ pub struct TreeMapProgram {
     pub rects_cache: canvas::Cache,
     pub menu_cache: canvas::Cache,
     pub gui_nodes: Vec<GUINode>,
-    pub shown_root_id: NodeID,
-    pub shown_root_id_history: Vec<NodeID>,
     pub bounds: iced::Rectangle,
     pub active_node: Option<NodeID>,
     pub active_node_is_stale: bool,
@@ -197,6 +195,8 @@ struct TreeMapApp {
     program: TreeMapProgram,
     scan_progress: f32,
     node_pending_trash: Option<GUINode>,
+    shown_root_id_history: Vec<NodeID>,
+    shown_root_path_history: Vec<String>,
 }
 
 impl TreeMapApp {
@@ -209,8 +209,6 @@ impl TreeMapApp {
                     rects_cache: canvas::Cache::default(),
                     menu_cache: canvas::Cache::default(),
                     gui_nodes: vec![],
-                    shown_root_id: 0,
-                    shown_root_id_history: vec![],
                     bounds: iced::Rectangle {
                         x: 0.0,
                         y: 0.0,
@@ -222,6 +220,8 @@ impl TreeMapApp {
                     context_menu: None,
                 },
                 node_pending_trash: None,
+                shown_root_id_history: vec![],
+                shown_root_path_history: vec![],
             },
             Task::done(TreeMapMessage::FolderSelected(start_with_scan.to_owned())),
         )
@@ -250,8 +250,9 @@ impl TreeMapApp {
                     let path_str = path.to_string_lossy().into_owned();
                     self.scan = Some(Arc::new(Scan::new(&path_str)));
 
-                    self.program.shown_root_id = 0;
-                    self.program.shown_root_id_history.clear();
+                    self.shown_root_path_history.clear();
+                    self.shown_root_path_history.push(path_str);
+                    self.shown_root_id_history.clear();
                     return Task::done(TreeMapMessage::RecalculateRects);
                 }
             }
@@ -260,8 +261,8 @@ impl TreeMapApp {
                     let path = scan.path.clone();
                     self.scan = Some(Arc::new(Scan::new(&path)));
 
-                    self.program.shown_root_id = 0;
-                    self.program.shown_root_id_history.clear();
+                    self.shown_root_id_history.clear();
+                    self.shown_root_path_history.truncate(1); // only keep the root path
                     return Task::done(TreeMapMessage::RecalculateRects);
                 }
             }
@@ -285,12 +286,10 @@ impl TreeMapApp {
 
                 if let Some(scan) = &self.scan {
                     if let Ok(tree) = scan.tree_mutex.lock() {
-                        self.program.gui_nodes.append(&mut compute_gui_nodes(
-                            &tree,
-                            self.program.shown_root_id,
-                            base_rect,
-                            20.0,
-                        ));
+                        let shown_root = *self.shown_root_id_history.last().unwrap_or(&0_usize);
+                        self.program
+                            .gui_nodes
+                            .append(&mut compute_gui_nodes(&tree, shown_root, base_rect, 20.0));
                     }
                 }
                 self.program.active_node_is_stale = true;
@@ -359,33 +358,34 @@ impl TreeMapApp {
                 }
             }
             TreeMapMessage::FocusOnActiveNode => {
-                if self.node_pending_trash.is_none() {
-                    if let Some(id) = self.program.active_node {
-                        if let Some(gnode) = self.program.gui_nodes.iter().find(|x| id == x.node_id)
-                        {
-                            if !gnode.is_file {
-                                self.program
-                                    .shown_root_id_history
-                                    .push(self.program.shown_root_id);
-                                self.program.shown_root_id = gnode.node_id;
-                                return Task::done(TreeMapMessage::RecalculateRects);
-                            }
+                // don't focus on the same node again
+                if self.node_pending_trash.is_none()
+                    && *self.shown_root_id_history.last().unwrap_or(&0_usize)
+                        != self.program.active_node.unwrap_or(0_usize)
+                {
+                    if let Some(id) = self.program.active_node
+                        && let Some(scan) = &self.scan
+                        && let Ok(tree) = scan.tree_mutex.lock()
+                    {
+                        let node = tree.get_elem(id);
+                        if !node.is_file {
+                            self.shown_root_id_history.push(node.id);
+                            self.shown_root_path_history
+                                .push(node.path.to_string_lossy().into());
+                            return Task::done(TreeMapMessage::RecalculateRects);
                         }
                     }
                 }
             }
             TreeMapMessage::FocusOnRootNode => {
-                if self.program.shown_root_id != 0 {
-                    self.program
-                        .shown_root_id_history
-                        .push(self.program.shown_root_id);
-                }
-                self.program.shown_root_id = 0;
+                self.shown_root_id_history.clear();
+                self.shown_root_path_history.truncate(1); // only keep root path
                 return Task::done(TreeMapMessage::RecalculateRects);
             }
             TreeMapMessage::FocusOnPreviousNode => {
-                if let Some(node) = self.program.shown_root_id_history.pop() {
-                    self.program.shown_root_id = node;
+                self.shown_root_id_history.pop();
+                if self.shown_root_path_history.len() > 1 {
+                    self.shown_root_path_history.pop();
                 }
                 return Task::done(TreeMapMessage::RecalculateRects);
             }
@@ -404,6 +404,14 @@ impl TreeMapApp {
                 .rounded(5.0);
             style
         };
+        let back_button: Element<'_, TreeMapMessage> = if self.shown_root_id_history.is_empty() {
+            text("").into()
+        } else {
+            button("Back")
+                .style(button_style)
+                .on_press(TreeMapMessage::FocusOnPreviousNode)
+                .into()
+        };
 
         let header = column![
             container(
@@ -411,11 +419,17 @@ impl TreeMapApp {
                     button("Scan")
                         .style(button_style)
                         .on_press(TreeMapMessage::SelectFolder),
+                    back_button,
                     center_x(
-                        text(config::APP_TITLE)
-                            .size(16.0)
-                            .font(iced::Font::DEFAULT.weight(iced::font::Weight::Bold))
-                            .align_y(iced::Alignment::Center)
+                        text(
+                            self.shown_root_path_history
+                                .last()
+                                .map(|x| x.as_str())
+                                .unwrap_or("SpaceMan")
+                        )
+                        .size(15.0)
+                        .font(iced::Font::DEFAULT.weight(iced::font::Weight::Bold))
+                        .align_y(iced::Alignment::Center)
                     ),
                     button("Refresh")
                         .style(button_style)
