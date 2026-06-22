@@ -200,7 +200,7 @@ struct TreeMapApp {
 }
 
 impl TreeMapApp {
-    fn new() -> (Self, Task<TreeMapMessage>) {
+    fn new(start_with_scan: Option<PathBuf>) -> (Self, Task<TreeMapMessage>) {
         (
             Self {
                 scan: None,
@@ -223,7 +223,7 @@ impl TreeMapApp {
                 },
                 node_pending_trash: None,
             },
-            Task::none(),
+            Task::done(TreeMapMessage::FolderSelected(start_with_scan.to_owned())),
         )
     }
 
@@ -553,10 +553,14 @@ impl TreeMapApp {
     }
 }
 
-pub fn init() -> iced::Result {
-    iced::application(TreeMapApp::new, TreeMapApp::update, TreeMapApp::view)
-        .subscription(TreeMapApp::subscription)
-        .title(TreeMapApp::title)
-        .theme(TreeMapApp::theme)
-        .run()
+pub fn init(start_with_scan: Option<PathBuf>) -> iced::Result {
+    iced::application(
+        move || TreeMapApp::new(start_with_scan.clone()),
+        TreeMapApp::update,
+        TreeMapApp::view,
+    )
+    .subscription(TreeMapApp::subscription)
+    .title(TreeMapApp::title)
+    .theme(TreeMapApp::theme)
+    .run()
 }

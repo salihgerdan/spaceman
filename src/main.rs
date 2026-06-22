@@ -10,7 +10,15 @@ mod types;
 mod ui;
 mod utils;
 
+use std::path::PathBuf;
+
 fn main() {
     dbg!(mounts::get_mounts());
-    ui::init().expect("Failed to initiate UI");
+    let args: Vec<_> = std::env::args().collect();
+    if args.len() > 1 {
+        ui::init(Some(PathBuf::from(&args[1])))
+    } else {
+        ui::init(None)
+    }
+    .expect("Failed to initiate UI");
 }
