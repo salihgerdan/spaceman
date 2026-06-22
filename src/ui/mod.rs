@@ -31,6 +31,9 @@ pub enum TreeMapMessage {
     FocusOnPreviousNode,
     ScanRestarted,
     Ignore,
+    PromptTrashNode(NodeID),
+    ConfirmTrashNode,
+    CancelTrashNode,
 }
 
 // storing nothing for now
@@ -193,6 +196,7 @@ struct TreeMapApp {
     scan: Option<Arc<Scan>>,
     program: TreeMapProgram,
     scan_progress: f32,
+    node_pending_trash: Option<GUINode>,
 }
 
 impl TreeMapApp {
@@ -217,6 +221,7 @@ impl TreeMapApp {
                     active_node_is_stale: false,
                     context_menu: None,
                 },
+                node_pending_trash: None,
             },
             Task::none(),
         )
@@ -298,13 +303,18 @@ impl TreeMapApp {
                 }
             }
             TreeMapMessage::NodeHovered(node_id) => {
-                self.program.active_node = node_id;
-                self.program.active_node_is_stale = false;
-                self.program.rects_cache.clear();
+                if self.node_pending_trash.is_none() {
+                    self.program.active_node = node_id;
+                    self.program.active_node_is_stale = false;
+                    self.program.rects_cache.clear();
+                }
             }
             TreeMapMessage::NodeRightClicked { node_id, position } => {
-                self.program.context_menu = Some(context_menu::ContextMenu::new(node_id, position));
-                self.program.menu_cache.clear();
+                if self.node_pending_trash.is_none() {
+                    self.program.context_menu =
+                        Some(context_menu::ContextMenu::new(node_id, position));
+                    self.program.menu_cache.clear();
+                }
             }
             TreeMapMessage::CloseContextMenu => {
                 self.program.context_menu = None;
@@ -313,33 +323,53 @@ impl TreeMapApp {
             }
             TreeMapMessage::ExecuteAction(action, node_id) => {
                 self.program.context_menu = None;
-                if let Some(scan) = &self.scan {
+                if let Some(_scan) = &self.scan {
                     match action.as_str() {
                         "Show" => {
                             return Task::perform(
-                                actions::show_node(scan.clone(), node_id),
+                                actions::show_node(_scan.clone(), node_id),
                                 |_| TreeMapMessage::Ignore,
                             );
                         }
                         "Trash" => {
-                            return Task::perform(
-                                actions::trash_node(scan.clone(), node_id),
-                                |_| TreeMapMessage::RecalculateRects,
-                            );
+                            // Instead of running immediately, trap the ID and request confirmation
+                            return Task::done(TreeMapMessage::PromptTrashNode(node_id));
                         }
                         _ => {}
                     }
                 }
             }
+            TreeMapMessage::PromptTrashNode(node_id) => {
+                self.node_pending_trash = self
+                    .program
+                    .gui_nodes
+                    .iter()
+                    .find(|x| node_id == x.node_id)
+                    .cloned();
+            }
+            TreeMapMessage::CancelTrashNode => {
+                self.node_pending_trash = None;
+                self.program.active_node_is_stale = true; // resets hover safety
+            }
+            TreeMapMessage::ConfirmTrashNode => {
+                if let (Some(scan), Some(gnode)) = (&self.scan, self.node_pending_trash.take()) {
+                    return Task::perform(actions::trash_node(scan.clone(), gnode.node_id), |_| {
+                        TreeMapMessage::RecalculateRects
+                    });
+                }
+            }
             TreeMapMessage::FocusOnActiveNode => {
-                if let Some(id) = self.program.active_node {
-                    if let Some(gnode) = self.program.gui_nodes.iter().find(|x| id == x.node_id) {
-                        if !gnode.is_file {
-                            self.program
-                                .shown_root_id_history
-                                .push(self.program.shown_root_id);
-                            self.program.shown_root_id = gnode.node_id;
-                            return Task::done(TreeMapMessage::RecalculateRects);
+                if self.node_pending_trash.is_none() {
+                    if let Some(id) = self.program.active_node {
+                        if let Some(gnode) = self.program.gui_nodes.iter().find(|x| id == x.node_id)
+                        {
+                            if !gnode.is_file {
+                                self.program
+                                    .shown_root_id_history
+                                    .push(self.program.shown_root_id);
+                                self.program.shown_root_id = gnode.node_id;
+                                return Task::done(TreeMapMessage::RecalculateRects);
+                            }
                         }
                     }
                 }
@@ -432,7 +462,7 @@ impl TreeMapApp {
                 }
             }
 
-            if self.program.context_menu.is_none() {
+            if self.program.context_menu.is_none() && self.node_pending_trash.is_none() {
                 container(tooltip(
                     canvas_widget,
                     container(text(tooltip_text).style(|_| text::Style {
@@ -459,7 +489,55 @@ impl TreeMapApp {
             }
         };
 
-        column![header, content].into()
+        let main_layout = column![header, content];
+
+        if let Some(gnode) = &self.node_pending_trash {
+            let modal = container(
+                column![
+                    text("Are you sure you want to trash this item?")
+                        .font(iced::Font::DEFAULT.weight(iced::font::Weight::Bold)),
+                    text(&gnode.label),
+                    row![
+                        button("Cancel")
+                            .style(button::secondary)
+                            .padding(5)
+                            .on_press(TreeMapMessage::CancelTrashNode),
+                        button("Trash")
+                            .style(button::danger)
+                            .padding(5)
+                            .on_press(TreeMapMessage::ConfirmTrashNode),
+                    ]
+                    .spacing(20)
+                ]
+                .spacing(15)
+                .align_x(iced::Alignment::Center),
+            )
+            .width(320)
+            .padding(20)
+            .style(|theme: &Theme| {
+                let palette = theme.palette();
+                container::Style::default()
+                    .background(Background::Color(palette.background.weakest.color))
+                    .border(
+                        Border::default()
+                            .color(palette.background.strong.color)
+                            .width(1.0)
+                            .rounded(5.0),
+                    )
+            });
+
+            let overlay = container(center(modal))
+                .width(Length::Fill)
+                .height(Length::Fill)
+                .style(|_| {
+                    container::Style::default()
+                        .background(Background::Color(Color::from_rgba(0.0, 0.0, 0.0, 0.5)))
+                });
+
+            iced::widget::stack![main_layout, overlay].into()
+        } else {
+            main_layout.into()
+        }
     }
 
     fn theme(&self) -> Theme {

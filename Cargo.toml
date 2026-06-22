@@ -6,9 +6,11 @@ edition = "2024"
 [dependencies]
 get_sys_info = "0.1.21"
 jwalk = "0.8"
-once_cell = "1.17.1"
+once_cell = "1.21.4"
 rfd = { version = "0.14" }
 iced = { git = "https://github.com/iced-rs/iced.git", rev = "5c21f73a9942cdeb80bb15284b119da4b4f9a764", features = ["canvas", "smol"] }
+showfile = "0.1.1"
+trash = "5.2.6"
 
 [profile.release]
 codegen-units = 1
