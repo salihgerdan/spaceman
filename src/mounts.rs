@@ -1,4 +1,4 @@
-use get_sys_info::{Filesystem, Platform, System};
+/*use get_sys_info::{Filesystem, Platform, System};
 
 pub fn get_mounts() -> Vec<Filesystem> {
     let sys = System::new();
@@ -22,3 +22,4 @@ pub fn get_mounts() -> Vec<Filesystem> {
         })
         .collect()
 }
+*/
