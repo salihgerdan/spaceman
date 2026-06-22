@@ -340,14 +340,15 @@ impl TreeMapApp {
                     container(text(tooltip_text.clone()))
                         .style(|_theme| {
                             container::Style::default()
-                                .background(Background::Color(Color::from_rgba(0.0, 0.0, 0.0, 0.8)))
-                                .border(Border::default().rounded(3.0))
+                                .background(Background::Color(Color::from_rgba(0.0, 0.0, 0.0, 0.7)))
+                                .border(Border::default().rounded(4.0))
                         })
                         .padding(4.0),
                     tooltip::Position::FollowCursor,
                 ))
                 .width(Length::Fill)
                 .height(Length::Fill)
+                .padding(2.0)
             ]
             .into()
         } else {
@@ -356,6 +357,7 @@ impl TreeMapApp {
                 container(canvas_widget)
                     .width(Length::Fill)
                     .height(Length::Fill)
+                    .padding(2.0)
             ]
             .into()
         }
