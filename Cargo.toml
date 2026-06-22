@@ -12,6 +12,9 @@ iced = { git = "https://github.com/iced-rs/iced.git", rev = "5c21f73a9942cdeb80b
 showfile = "0.1.1"
 trash = "5.2.6"
 
+[target.'cfg(windows)'.build-dependencies]
+winresource = "0.1.31"
+
 [profile.release]
 codegen-units = 1
 lto = true
