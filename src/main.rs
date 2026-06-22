@@ -1,5 +1,6 @@
 // prevent a command line window on Windows
 #![windows_subsystem = "windows"]
+mod actions;
 mod config;
 mod mounts;
 mod node_color;

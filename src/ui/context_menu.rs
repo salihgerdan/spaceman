@@ -3,7 +3,7 @@ use crate::types::NodeID;
 use iced::widget::canvas::{self, Frame};
 use iced::{Color, Pixels, Point, Rectangle, Size};
 
-pub const OPTIONS: [&str; 3] = ["Open", "Show Directory", "Trash"];
+pub const OPTIONS: [&str; 2] = ["Show", "Trash"];
 pub const MENU_WIDTH: f32 = 140.0;
 pub const ITEM_HEIGHT: f32 = config::TEXT_SIZE + 14.0;
 pub const MENU_HEIGHT: f32 = ITEM_HEIGHT * OPTIONS.len() as f32;

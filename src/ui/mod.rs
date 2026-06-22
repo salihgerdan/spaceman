@@ -10,10 +10,10 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
 
-use crate::config;
 use crate::scan::Scan;
 use crate::squarify::compute_gui_nodes;
 use crate::types::{GUINode, NodeID, Rectangle};
+use crate::{actions, config};
 
 #[derive(Debug, Clone)]
 pub enum TreeMapMessage {
@@ -30,6 +30,7 @@ pub enum TreeMapMessage {
     FocusOnRootNode,
     FocusOnPreviousNode,
     ScanRestarted,
+    Ignore,
 }
 
 // storing nothing for now
@@ -227,6 +228,7 @@ impl TreeMapApp {
 
     fn update(&mut self, message: TreeMapMessage) -> Task<TreeMapMessage> {
         match message {
+            TreeMapMessage::Ignore => {}
             TreeMapMessage::SelectFolder => {
                 return Task::perform(
                     async {
@@ -302,6 +304,7 @@ impl TreeMapApp {
             }
             TreeMapMessage::NodeRightClicked { node_id, position } => {
                 self.program.context_menu = Some(context_menu::ContextMenu::new(node_id, position));
+                self.program.menu_cache.clear();
             }
             TreeMapMessage::CloseContextMenu => {
                 self.program.context_menu = None;
@@ -309,16 +312,24 @@ impl TreeMapApp {
                 self.program.active_node_is_stale = true;
             }
             TreeMapMessage::ExecuteAction(action, node_id) => {
+                self.program.context_menu = None;
                 if let Some(scan) = &self.scan {
-                    if let Ok(tree) = scan.tree_mutex.lock() {
-                        let node = tree.get_elem(node_id);
-                        println!(
-                            "Executing action: [{}] on target node: {}",
-                            action, node.name
-                        );
+                    match action.as_str() {
+                        "Show" => {
+                            return Task::perform(
+                                actions::show_node(scan.clone(), node_id),
+                                |_| TreeMapMessage::Ignore,
+                            );
+                        }
+                        "Trash" => {
+                            return Task::perform(
+                                actions::trash_node(scan.clone(), node_id),
+                                |_| TreeMapMessage::RecalculateRects,
+                            );
+                        }
+                        _ => {}
                     }
                 }
-                self.program.context_menu = None;
             }
             TreeMapMessage::FocusOnActiveNode => {
                 if let Some(id) = self.program.active_node {
