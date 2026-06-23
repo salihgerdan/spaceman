@@ -439,16 +439,11 @@ impl TreeMapApp {
                 .align_y(iced::Alignment::Center)
             )
             .width(Length::Fill)
-            .padding(3)
+            .padding([1, 2])
             .style(|theme: &Theme| {
                 let palette = theme.palette();
                 container::Style::default()
                     .background(Background::Color(palette.background.weakest.color))
-                    .border(
-                        Border::default()
-                            .color(palette.background.strong.color)
-                            .width(1.0),
-                    )
             }),
             progress_bar(0.0..=1.0, self.scan_progress).girth(3.0)
         ];
