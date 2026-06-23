@@ -34,6 +34,7 @@ pub enum TreeMapMessage {
     PromptTrashNode(NodeID),
     ConfirmTrashNode,
     CancelTrashNode,
+    EscPressed,
 }
 
 // storing nothing for now
@@ -126,7 +127,7 @@ impl Program<TreeMapMessage> for TreeMapProgram {
             }
             iced::Event::Keyboard(iced::keyboard::Event::KeyReleased { key, .. }) => match key {
                 key::Key::Named(Escape) => {
-                    message = Some(TreeMapMessage::FocusOnRootNode);
+                    message = Some(TreeMapMessage::EscPressed);
                 }
                 key::Key::Named(Backspace) => {
                     message = Some(TreeMapMessage::FocusOnPreviousNode);
@@ -375,6 +376,13 @@ impl TreeMapApp {
                             return Task::done(TreeMapMessage::RecalculateRects);
                         }
                     }
+                }
+            }
+            TreeMapMessage::EscPressed => {
+                if self.node_pending_trash.is_some() {
+                    return Task::done(TreeMapMessage::CancelTrashNode);
+                } else {
+                    return Task::done(TreeMapMessage::FocusOnRootNode);
                 }
             }
             TreeMapMessage::FocusOnRootNode => {
