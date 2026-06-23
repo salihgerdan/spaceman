@@ -181,7 +181,9 @@ fn walk_into_tree(
             }
         }
 
-        if last_update.elapsed() >= config::UPDATE_PERIOD {
+        // with time based updates, we might end up missing small folders or the last few elements
+        // check for iter.peek().is_none() or just run this at the end of the loop again
+        if last_update.elapsed() >= config::UPDATE_PERIOD || iter.peek().is_none() {
             // acquire lock here
             let mut tree = tree.lock().unwrap();
             for e in staging_buffer.drain(..) {
