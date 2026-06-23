@@ -1,27 +1,34 @@
-# spaceman <img src="spaceman.png" width="48"/>
+# spaceman <img src="spaceman.png" width="28"/>
 Treemap disk usage analyzer: *In search of lost space* (a.k.a. wata-analyzer)  
 ![Screenshot](screenshot.png?raw=true)
-**Warning: beta software (however, usable)**
+
 ## Features
-- [X] Fast scan and display, with the power of Rust, and gtk4 gpu rendering capabilities
-- [X] Uses the jwalk library as [dua-cli](https://github.com/Byron/dua-cli/) does, enabling multi-threaded scans
-- [x] **Live** display of scan results, no need to wait for the scan to complete
-- [x] Linux-first, but cross-platform
+- [x] Uses the jwalk library as the renowned [dua-cli](https://github.com/Byron/dua-cli/) does, enabling multi-threaded fast scans
+- [x] Linux-first, cross-platform
+- [x] Live display of scan results, responsive UI
+- [x] Zoom into sub-directories
+- [x] Single portable executable with no dependencies
 ## Planned
-- [ ] Tracks changes on the filesystem
-- [ ] Navigate into sub-directories
-- [ ] Right click menu to manage the directories
-## Install
-Primarily tested for Linux, but confirmed to work on MacOS and Windows as well.  
-**To build**: You need to have `gtk4` (`libgtk-4-dev` on Ubuntu/Debian) and `rust`/`cargo`. The only command necessary to build is `cargo build --release` after the dependencies are installed.  
+- [ ] More themes
+## Install  
+**To build**: The only command necessary to build is `cargo build --release`.  
 You can also simply grab an executable from the [Releases](https://github.com/salihgerdan/spaceman/releases) section.  
 There is an [AUR package `spaceman-git`](https://aur.archlinux.org/packages/spaceman-git) available for Arch Linux (i.e. run `yay install spaceman-git`).  
-**To run**: Ensure `gtk4` (`libgtk-4-1` on Ubuntu/Debian, `brew install gtk4` on MacOS) is installed.  
-The Windows package, unlike the Linux and Mac executables, pack all the necessary libraries within the archive so you do not have to install gtk4 separately. I am not quite happy with the Windows package in a UNIX style directory tree, alas this is what was possible with the library dependencies. I am looking into alternatives.  
+### Mac tells me this is trash
+> "SpaceMan" is damaged and can't be opened. You should move it to the Trash.
+
+As this is an unsigned app, you will have to remove the quarantine after installation with the following command in the terminal.
+
+```sh
+xattr -d com.apple.quarantine /Applications/SpaceMan.app
+```
 ## Usage
 Click the button on the left of the titlebar, and choose a directory to scan. You can also provide a directory to scan as a command line argument.
+
+Don't forget to empty the system trash after using the "trash" option in order to reclaim the space.
+## News! (exciting)
+Version 0.2.0 was a near-rewrite of the app and we switched from using GTK4 to Iced as our UI library. As I wanted to make this a portable application, this finally allowed us to avoid shipping .DLL files or asking to install dependencies.
 ## Acknowledgements
 [SpaceSniffer](http://www.uderzo.it/main_products/space_sniffer/) for inspiration  
 [Bruls, Huizing, van Wijk, "Squarified Treemaps"](https://www.win.tue.nl/~vanwijk/stm.pdf) and [TreeMonger](https://github.com/alanbernstein/treemonger) which I referenced for the squarified treemap algorithm  
-[dua-cli](https://github.com/Byron/dua-cli/) for reference on using the jwalk library  
-
+[dua-cli](https://github.com/Byron/dua-cli/) for reference on using the jwalk library
