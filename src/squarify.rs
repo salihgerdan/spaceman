@@ -45,7 +45,6 @@ fn compute_gui_nodes_imp(
             node_id: node.id,
             color: node.color(),
             label: format!("{} ({})", node.name, bytes_display(node.size)),
-            is_file: node.is_file,
         };
 
         gui_nodes.push(gui_node);

@@ -137,5 +137,4 @@ pub struct GUINode {
     pub node_id: NodeID,
     pub color: RGBA,
     pub label: String,
-    pub is_file: bool,
 }
