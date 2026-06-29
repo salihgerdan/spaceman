@@ -1,4 +1,7 @@
 # spaceman <img src="spaceman.png" width="28"/>
+[![Downloads](https://img.shields.io/github/downloads/salihgerdan/spaceman/total)](https://github.com/salihgerdan/spaceman/releases)
+[![Downloads (Latest)](https://img.shields.io/github/downloads/salihgerdan/spaceman/latest/total)](https://github.com/salihgerdan/spaceman/releases/latest)
+
 Treemap disk usage analyzer: *In search of lost space* (a.k.a. wata-analyzer)  
 ![Screenshot](screenshot.png?raw=true)
 
