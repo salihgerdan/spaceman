@@ -215,3 +215,58 @@ fn walk_into_tree(
         thread::sleep(Duration::from_millis(4000));
     }*/
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs::File;
+    use std::thread;
+    use std::time::Duration;
+    use tempfile::tempdir;
+
+    /// Regression test for when we introduced time based updates.
+    /// We ended up missing everything in small folders or the last few elements in a folder,
+    /// as the scan completed before the first flush happened.
+    #[test]
+    fn test_trailing_elements_flushed() {
+        // create a temporary directory structure
+        let tmp_dir = tempdir().expect("Failed to create temp dir");
+        let root_path = tmp_dir.path();
+
+        dbg!(root_path);
+
+        // create a couple of files
+        let file1_path = root_path.join("file1.txt");
+        File::create(&file1_path).unwrap();
+        let sub_dir_path = root_path.join("small_folder");
+        fs::create_dir(&sub_dir_path).unwrap();
+        let file2_path = sub_dir_path.join("file2.txt");
+        File::create(&file2_path).unwrap();
+
+        // run the scanner
+        let path_str = root_path.to_str().unwrap();
+        let scan = Scan::new(path_str);
+
+        while !scan.complete.load(Ordering::SeqCst) {
+            thread::sleep(Duration::from_millis(10));
+        }
+
+        let tree = scan.tree_mutex.lock().unwrap();
+
+        // verify that the root node actually registered children
+        let root_node = tree.get_elem(0);
+        assert!(
+            !root_node.children.is_empty(),
+            "Root node has no children registered"
+        );
+
+        // Ensure the total count of added nodes matches expected values
+        // Expecting: Root node (0), "file1.txt", "small_folder", "file2.txt" -> 4 elements
+        assert_eq!(
+            tree.elems.len(),
+            4,
+            "Tree elements missing. Elements in tree: {:?}",
+            tree.elems
+        );
+    }
+}
