@@ -1,22 +1,36 @@
-pkgname=spaceman
-pkgver=git
+# Maintainer: msg (salihgerdan on github)
+pkgname=spaceman-git
+pkgver=0.2.1.r4.g03e459f
 pkgrel=1
-pkgdesc=""
-arch=('i686' 'x86_64')
+pkgdesc="Treemap disk usage analyzer (graphical visualizer, SpaceSniffer alternative)"
+arch=('any')
 url="https://github.com/salihgerdan/spaceman"
-license=('MIT')
-depends=(gtk4)
-makedepends=(gtk4 cargo)
+license=('GPL')
+depends=()
+makedepends=(cargo)
 source=(git+https://github.com/salihgerdan/spaceman.git)
 md5sums=("SKIP")
 
+pkgver() {
+  cd "$srcdir/spaceman"
+  git describe --long --tags --abbrev=7 | sed 's/^v//;s/\([^-]*-g\)/r\1/;s/-/./g'
+}
+
+prepare() {
+  export RUSTUP_TOOLCHAIN=stable
+  cd "$srcdir/spaceman"
+  cargo fetch --locked --target "$CARCH-unknown-linux-gnu"
+}
+
 build() {
-  cd "$srcdir/$pkgname"
-  cargo build --release
+  export RUSTUP_TOOLCHAIN=stable
+  export CARGO_TARGET_DIR=target
+  cd "$srcdir/spaceman"
+  cargo build --frozen --release
 }
 
 package() {
-  cd "$srcdir/$pkgname"
+  cd "$srcdir/spaceman"
 
   mkdir -p "$pkgdir/usr/share/applications"
   install spaceman.desktop "$pkgdir/usr/share/applications"
