@@ -30,7 +30,8 @@ Click the button on the left of the titlebar, and choose a directory to scan. Yo
 
 Don't forget to empty the system trash after using the "trash" option in order to reclaim the space.
 ## News! (exciting)
-Version 0.2.0 was a near-rewrite of the app and we switched from using GTK4 to Iced as our UI library. As I wanted to make this a portable application, this finally allowed us to avoid shipping .DLL files or asking to install dependencies.
+- [I am now looking for new icon ideas/submissions](https://github.com/salihgerdan/spaceman/issues/6)
+- Version 0.2.0 was a near-rewrite of the app and we switched from using GTK4 to Iced as our UI library. As I wanted to make this a portable application, this finally allowed us to avoid shipping .DLL files or asking to install dependencies.
 ## Acknowledgements
 [SpaceSniffer](http://www.uderzo.it/main_products/space_sniffer/) for inspiration  
 [Bruls, Huizing, van Wijk, "Squarified Treemaps"](https://www.win.tue.nl/~vanwijk/stm.pdf) and [TreeMonger](https://github.com/alanbernstein/treemonger) which I referenced for the squarified treemap algorithm  
